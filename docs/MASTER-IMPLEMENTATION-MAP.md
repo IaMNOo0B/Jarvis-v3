@@ -58,7 +58,7 @@ Sir types one natural-language message in the JARVIS window. JARVIS classifies t
 ### Gate A — Safe core
 - Wire the orchestration registry into chat/task dispatch.
 - Add typed task state and cancellation through GUI workers.
-- Add step receipts and postcondition evidence contracts.
+- Add persistent per-step receipts and postcondition evidence contracts.
 - Add adversarial, ambiguity, timeout, cancellation and secret-redaction tests.
 
 ### Gate B — Desktop vertical slice
@@ -88,7 +88,7 @@ Sir types one natural-language message in the JARVIS window. JARVIS classifies t
 - Public research, archive, task receipts and reviewable learning/self-healing records exist as bounded prototype modules.
 - jarvis/orchestration.py now defines a fail-closed capability registry, approval gate, cancellation checkpoints and explicit evidence outcomes. Unit tests were added in tests/test_orchestration.py.
 - GUI dispatch now routes explicit Wikipedia/GitHub research and allowlisted app launches through the registered capability registry and task runtime. Stop/Esc cancellation is wired to chat generation, research and provider health checks; launch cancellation warns that the app may already have opened. Cancellation cannot forcibly interrupt an in-flight provider/network call; it discards the result at the next safe boundary.
-- CI result for the latest head is not confirmed. The latest branch has not been verified on a real Windows PC. Stop/Esc cancellation is still not wired into the GUI; cancellation currently exists as a tested primitive and orchestration checkpoint.
+- CI result for the latest head is not confirmed. The latest branch has not been verified on a real Windows PC. Stop/Esc cancellation is wired into chat generation, research, and provider health-check workers at safe boundaries; in-flight provider/network calls are not forcibly interrupted.
 - PR #2 remains draft/open/unmerged; do not install this branch as a final release.
 
 ## Definition of done
