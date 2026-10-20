@@ -86,7 +86,7 @@ class JarvisWindow:
         self.send_button = ttk.Button(compose, text="Send", command=self.send)
         self.send_button.pack(side="right")
         self.root.bind("<Escape>", self._escape_stop)
-        ttk.Label(shell, text="Stop / Esc cancels at safe boundaries. Notepad/Chrome launch requires confirmation. No microphone is active.").pack(anchor="w", pady=(8, 0))
+        ttk.Label(shell, text="Stop / Esc cancels at safe boundaries. Explicit allow-listed app launches run only for requested apps. No microphone is active.").pack(anchor="w", pady=(8, 0))
         self._append("JARVIS", "Ready. Ask a question or use /help. Try “open Notepad” or “Notepad kholo” to request an approved app launch.")
         self.entry.focus_set()
         self.root.protocol("WM_DELETE_WINDOW", self.close)
@@ -105,6 +105,32 @@ class JarvisWindow:
         except (OSError, ValueError):
             # Activity logging must never block the requested user operation.
             pass
+
+    def _record_runtime_steps(self, task: str, steps) -> None:
+        """Persist per-step outcomes without upgrading attempts to verified success."""
+        status_map = {
+            "verified": "verified",
+            "attempted": "attempted",
+            "failed": "failed",
+            "partial": "partial",
+            "blocked": "blocked",
+            "cancelled": "cancelled",
+            "unknown": "unknown",
+            "skipped": "skipped",
+            "approval_required": "blocked",
+            "invalid_result": "failed",
+        }
+        for step in steps:
+            label = f"{step.name}: {step.target}" if step.target else step.name
+            evidence = step.detail
+            if step.evidence and step.evidence != "none":
+                evidence = f"{evidence} | evidence: {step.evidence}"
+            try:
+                self.task_receipts.record_step(
+                    task, label[:200], status_map.get(step.status, "failed"), evidence=evidence[:4000],
+                )
+            except (ValueError, OSError):
+                self._record_activity("task_step_receipt", "not_saved", f"step {label[:100]} remains visible in the final task result")
 
     def _begin_work(self) -> CancellationToken:
         token = CancellationToken()
@@ -662,6 +688,7 @@ class JarvisWindow:
                         approved=True,
                         cancellation=token,
                     )
+                    self._record_runtime_steps(message, runtime.step_results)
                     outcome = runtime.capability_result
                     if token.cancelled:
                         detail = runtime.detail if runtime is not None else "An app launch may have occurred; check the desktop before retrying."
