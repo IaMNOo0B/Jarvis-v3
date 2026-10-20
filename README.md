@@ -4,7 +4,7 @@ A Windows-first desktop AI assistant, built incrementally from a clean foundatio
 
 ## Project status
 
-**Early prototype — not a finished assistant.** Text chat, provider interfaces, secure credential integration, and a minimal GUI are under active development. Desktop app launching is limited to exact Notepad/Chrome requests with an explicit confirmation dialog. Voice, reminders, memory, general UI automation, installer, and end-to-end Windows verification are not complete.
+**Early prototype — not a finished assistant.** Text chat, provider interfaces, secure credential integration, and a minimal GUI are under active development. Desktop app launching is limited to exact Notepad/Chrome requests with an explicit confirmation dialog. Voice, reminders, memory, live UI Automation integration, installer, and end-to-end Windows verification are not complete. A UI Automation contract and fake-backend tests now define the safe integration boundary; they do not control the desktop yet.
 
 ## Start the GUI
 
@@ -38,7 +38,7 @@ The GUI starts with local Ollama. To use Gemini on Windows, click **Save Gemini 
 2. Text core and provider interface.
 3. Action safety and outbound-access policy.
 4. Local Ollama and optional cloud providers.
-5. Desktop app registry and UI Automation-first control.
+5. Desktop app registry and UI Automation-first control (contract/tests started; live adapter not wired).
 6. Memory and reminders.
 7. GUI/tray, activity feed, and cancellation.
 8. Optional voice plugin.
