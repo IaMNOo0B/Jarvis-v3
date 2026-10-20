@@ -11,7 +11,10 @@ class DesktopLaunchTests(unittest.TestCase):
         self.assertEqual(parse_app_launch_request("Please start Chrome now"), "chrome")
 
     def test_unknown_app_or_ambiguous_request_is_not_executed(self):
-        self.assertIsNone(parse_app_launch_request("please open calculator"))
+        self.assertEqual(parse_app_launch_request("please open calculator"), "calculator")
+        self.assertEqual(parse_app_launch_request("please open the file explorer"), "explorer")
+        self.assertEqual(parse_app_launch_request("launch Visual Studio Code"), "vs code")
+        self.assertEqual(parse_app_launch_request("Can you please open Microsoft Edge for me?"), "edge")
         self.assertIsNone(parse_app_launch_request("can you explain how Chrome works"))
 
     def test_exact_launch_phrases(self):
