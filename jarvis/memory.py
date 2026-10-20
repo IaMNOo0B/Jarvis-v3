@@ -2,6 +2,9 @@
 from __future__ import annotations
 
 import sqlite3
+from typing import ContextManager
+
+from jarvis.sqlite_utils import sqlite_connection
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -36,10 +39,8 @@ class MemoryStore:
                 occurred_at TEXT NOT NULL
             )""")
 
-    def _connect(self) -> sqlite3.Connection:
-        db = sqlite3.connect(self.database_path, timeout=5.0)
-        db.row_factory = sqlite3.Row
-        return db
+    def _connect(self) -> ContextManager[sqlite3.Connection]:
+        return sqlite_connection(self.database_path, timeout=5.0)
 
     def remember(self, content: str, *, source: str) -> MemoryRecord:
         value, provenance = content.strip(), source.strip()
