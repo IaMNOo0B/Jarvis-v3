@@ -35,10 +35,13 @@ class DesktopLaunchTests(unittest.TestCase):
             "open notepad and type hello",
             "open powershell",
             "close chrome",
-            "please open chrome immediately",
+            "please open chrome and then type hello",
         ):
             with self.subTest(phrase=phrase):
                 self.assertIsNone(parse_app_launch_request(phrase))
+
+    def test_explicit_request_allows_normal_time_adverbs(self):
+        self.assertEqual(parse_app_launch_request("please open chrome immediately"), "chrome")
 
     def test_launch_gate_rejects_without_approval(self):
         result = launch_app_with_approval("notepad", user_approved=False)
