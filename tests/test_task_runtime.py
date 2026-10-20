@@ -65,6 +65,7 @@ class TaskRuntimeTests(unittest.TestCase):
         self.assertEqual(called, ["notepad", "calculator"])
         self.assertIn("1 of 3 app-launch requests were accepted", result.detail)
         self.assertIn("check which apps opened", result.detail.casefold())
+        self.assertEqual([step.status for step in result.step_results], ["attempted", "failed", "skipped"])
 
     def test_invalid_multi_app_target_is_blocked_without_running(self):
         plan = self.planner.plan("open Notepad and Calculator")
