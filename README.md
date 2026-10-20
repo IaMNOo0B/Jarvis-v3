@@ -10,6 +10,11 @@ A Windows-first desktop AI assistant, built incrementally from a clean foundatio
 
 The consolidated feature inventory, build order, safety rules, and release gates live in [docs/MASTER-IMPLEMENTATION-MAP.md](docs/MASTER-IMPLEMENTATION-MAP.md). Treat it as the single roadmap; the research ledger records study provenance and implementation evidence.
 
+
+### Automated task execution boundary
+
+The GUI routes the currently supported app-launch and public-research intents through the code-registered capability registry and task runtime. Unknown intents never become shell commands. Use **Stop** or **Esc** to request cooperative cancellation of chat, research, and provider health checks; a running network/provider call may continue until its timeout, and its result is discarded at the next safe boundary. If cancellation arrives during app launch, check whether the app opened before retrying. This is not yet full general-purpose desktop automation.
+
 ## One-click Windows control
 
 Use **`JARVIS.bat`** as the only setup/control entry point. It opens one menu for:
