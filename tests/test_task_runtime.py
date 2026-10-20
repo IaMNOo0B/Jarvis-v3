@@ -12,6 +12,15 @@ class TaskRuntimeTests(unittest.TestCase):
         self.registry = CapabilityRegistry()
         self.calls = []
         self.registry.register(Capability(
+            "preflight_notepad_uia",
+            lambda args: TaskOutcome(
+                "preflight_notepad_uia", "verified",
+                "The fixed Notepad UI Automation helper is available.",
+                "powershell_uia_helper_available",
+            ),
+            requires_approval=False,
+        ))
+        self.registry.register(Capability(
             "launch_app",
             lambda args: self.calls.append(("launch", args)) or {"accepted": True},
             requires_approval=True,
@@ -87,7 +96,7 @@ class TaskRuntimeTests(unittest.TestCase):
         self.assertEqual(result.status, "verified")
         self.assertEqual([call[1]["app"] for call in self.calls], ["notepad"])
         self.assertEqual(self.type_calls, [{"target": "blank document", "text": "Hello Sir"}])
-        self.assertEqual([step.status for step in result.step_results], ["attempted", "verified"])
+        self.assertEqual([step.status for step in result.step_results], ["verified", "attempted", "verified"])
         self.assertEqual(result.evidence, "notepad_readback_exact_match")
 
     def test_oversized_utf16_notepad_plan_is_blocked_before_launch(self):
@@ -106,9 +115,49 @@ class TaskRuntimeTests(unittest.TestCase):
         self.assertEqual(self.calls, [])
         self.assertEqual(self.type_calls, [])
 
+    def test_unavailable_notepad_uia_preflight_stops_before_launch(self):
+        registry = CapabilityRegistry()
+        launch_calls = []
+        registry.register(Capability(
+            "preflight_notepad_uia",
+            lambda args: TaskOutcome(
+                "preflight_notepad_uia", "failed",
+                "Windows PowerShell UI Automation is unavailable; Notepad was not launched.",
+            ),
+            requires_approval=False,
+        ))
+        registry.register(Capability(
+            "launch_app",
+            lambda args: launch_calls.append(args["app"]) or {"accepted": True},
+            requires_approval=True,
+        ))
+        registry.register(Capability(
+            "type_notepad_text",
+            lambda args: TaskOutcome(
+                "type_notepad_text", "verified", "Read-back matches.",
+                "notepad_readback_exact_match",
+            ),
+            requires_approval=True,
+        ))
+        result = execute_plan(
+            self.planner.plan("open Notepad and type Hello Sir"),
+            registry=registry, approved=True,
+        )
+        self.assertEqual(result.status, "failed")
+        self.assertEqual(launch_calls, [])
+        self.assertEqual([step.status for step in result.step_results], ["failed", "skipped", "skipped"])
+
     def test_notepad_typing_failure_after_launch_is_partial_not_success(self):
         registry = CapabilityRegistry()
         launch_calls = []
+        registry.register(Capability(
+            "preflight_notepad_uia",
+            lambda args: TaskOutcome(
+                "preflight_notepad_uia", "verified", "Helper available.",
+                "powershell_uia_helper_available",
+            ),
+            requires_approval=False,
+        ))
         registry.register(Capability(
             "launch_app",
             lambda args: launch_calls.append(args["app"]) or {"accepted": True},
@@ -128,6 +177,14 @@ class TaskRuntimeTests(unittest.TestCase):
     def test_missing_composite_capability_fails_before_launch(self):
         registry = CapabilityRegistry()
         calls = []
+        registry.register(Capability(
+            "preflight_notepad_uia",
+            lambda args: TaskOutcome(
+                "preflight_notepad_uia", "verified", "Helper available.",
+                "powershell_uia_helper_available",
+            ),
+            requires_approval=False,
+        ))
         registry.register(Capability(
             "launch_app", lambda args: calls.append(args) or {"accepted": True}, requires_approval=True,
         ))
