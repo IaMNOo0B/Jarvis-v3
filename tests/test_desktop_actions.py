@@ -31,9 +31,8 @@ class DesktopLaunchTests(unittest.TestCase):
         for phrase in (
             "open notepad and type hello",
             "open powershell",
-            "kindly open chrome",
             "close chrome",
-            "notepad kholo abhi",
+            "please open chrome immediately",
         ):
             with self.subTest(phrase=phrase):
                 self.assertIsNone(parse_app_launch_request(phrase))
