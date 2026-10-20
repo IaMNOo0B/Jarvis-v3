@@ -603,9 +603,12 @@ class JarvisWindow:
             self._append("JARVIS", "Research request incomplete. Example: 'research Wikipedia artificial intelligence' or 'research GitHub agent framework'.")
             return
         if plan.intent == "notepad_type_text":
+            # Text supplied for typing may be private. Keep the request's content
+            # out of durable task/learning receipts; the live GUI transcript is in-memory.
+            history_task = "Notepad text-entry request (content omitted)"
             try:
                 self.task_receipts.record_step(
-                    message, "Notepad text workflow", "started",
+                    history_task, "Notepad text workflow", "started",
                     evidence="Explicit request to enter text into a blank Notepad document.",
                 )
             except (ValueError, OSError):
@@ -623,17 +626,17 @@ class JarvisWindow:
                         approved=True,
                         cancellation=token,
                     )
-                    self._record_runtime_steps(message, runtime.step_results)
+                    self._record_runtime_steps(history_task, runtime.step_results)
                     event = action_event_for_runtime(runtime)
                     if event[0] == "cancelled":
-                        self._post_event("cancelled", message)
+                        self._post_event("cancelled", history_task)
                         return
                 except OperationCancelled:
-                    self._post_event("cancelled", message)
+                    self._post_event("cancelled", history_task)
                     return
                 except Exception:
                     event = ("action_failed", "Unexpected Notepad automation error. Inspect the desktop before retrying.")
-                self._post_event("action", (event[0], event[1], message))
+                self._post_event("action", (event[0], event[1], history_task))
 
             threading.Thread(target=notepad_type_work, daemon=True).start()
             return
