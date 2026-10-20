@@ -3,20 +3,22 @@
 import queue
 import threading
 import tkinter as tk
-from tkinter import messagebox, scrolledtext, ttk
+from tkinter import messagebox, scrolledtext, simpledialog, ttk
 
 from jarvis.chat_service import ChatService
+from jarvis.credentials import CredentialStore, CredentialStoreError
 from jarvis.desktop_actions import launch_allowlisted_app, parse_app_launch_request
 from jarvis.health import check_provider
-from jarvis.provider_config import build_provider
+from jarvis.provider_config import ProviderConfig, build_provider
 
 
 class JarvisWindow:
     def __init__(self, root: tk.Tk) -> None:
         self.root = root
         self.root.title("JARVIS v3")
-        self.root.geometry("760x560")
-        self.root.minsize(560, 400)
+        self.root.geometry("780x590")
+        self.root.minsize(580, 430)
+        self.provider_name = "ollama"
         self.provider = build_provider()
         self.service = ChatService(self.provider)
         self.busy = False
@@ -29,8 +31,19 @@ class JarvisWindow:
         heading.pack(fill="x")
         ttk.Label(heading, text="JARVIS v3", font=("Segoe UI", 16, "bold")).pack(side="left")
         ttk.Button(heading, text="Check AI status", command=self.check_status).pack(side="right")
+        provider_row = ttk.Frame(shell)
+        provider_row.pack(fill="x", pady=(8, 2))
+        ttk.Label(provider_row, text="AI provider:").pack(side="left")
+        self.provider_choice = tk.StringVar(value="Local Ollama")
+        self.provider_picker = ttk.Combobox(
+            provider_row, textvariable=self.provider_choice,
+            values=("Local Ollama", "Google Gemini"), state="readonly", width=18,
+        )
+        self.provider_picker.pack(side="left", padx=(8, 6))
+        ttk.Button(provider_row, text="Apply", command=self.apply_provider).pack(side="left")
+        ttk.Button(provider_row, text="Save Gemini key…", command=self.save_gemini_key).pack(side="left", padx=(6, 0))
         self.status = tk.StringVar(value="AI status: not checked · Ollama local model")
-        ttk.Label(shell, textvariable=self.status).pack(anchor="w", pady=(8, 6))
+        ttk.Label(shell, textvariable=self.status).pack(anchor="w", pady=(6, 6))
         self.transcript = scrolledtext.ScrolledText(shell, wrap="word", state="disabled", font=("Segoe UI", 10))
         self.transcript.pack(fill="both", expand=True, pady=(0, 8))
         compose = ttk.Frame(shell)
@@ -40,8 +53,8 @@ class JarvisWindow:
         self.entry.bind("<Return>", self.send)
         self.send_button = ttk.Button(compose, text="Send", command=self.send)
         self.send_button.pack(side="right")
-        ttk.Label(shell, text="App launching supports Notepad/Chrome with confirmation. No microphone is active.").pack(anchor="w", pady=(8, 0))
-        self._append("JARVIS", "Ready. Ask a question or use /help. Say “open Notepad” or “open Chrome” to request an approved app launch.")
+        ttk.Label(shell, text="Notepad/Chrome launch requires confirmation. No microphone is active.").pack(anchor="w", pady=(8, 0))
+        self._append("JARVIS", "Ready. Ask a question or use /help. Try “open Notepad” or “Notepad kholo” to request an approved app launch.")
         self.entry.focus_set()
         self.root.protocol("WM_DELETE_WINDOW", self.close)
         self.root.after(40, self._drain_events)
@@ -76,6 +89,62 @@ class JarvisWindow:
                 self.busy = False
                 self.send_button.configure(state="normal")
         self.root.after(40, self._drain_events)
+
+    def _set_provider(self, name: str) -> None:
+        credentials = CredentialStore() if name == "gemini" else None
+        provider = build_provider(ProviderConfig(name=name), credentials=credentials)
+        self.provider = provider
+        self.service = ChatService(provider)
+        self.provider_name = name
+        self.status.set(f"Provider selected: {'Google Gemini' if name == 'gemini' else 'Local Ollama'} · run Check AI status to test")
+
+    def apply_provider(self) -> None:
+        if self.busy or self.closing:
+            self.status.set("AI status: wait for the current request before changing provider")
+            return
+        name = "gemini" if self.provider_choice.get() == "Google Gemini" else "ollama"
+        try:
+            self._set_provider(name)
+        except (ValueError, CredentialStoreError, OSError):
+            self.provider_choice.set("Local Ollama" if self.provider_name == "ollama" else "Google Gemini")
+            if name == "gemini":
+                messagebox.showerror(
+                    "Gemini is not ready",
+                    "No Gemini key was loaded from Windows Credential Manager. Save a key first, then apply Gemini again.",
+                    parent=self.root,
+                )
+            else:
+                messagebox.showerror("Provider unavailable", "JARVIS could not configure that provider.", parent=self.root)
+
+    def save_gemini_key(self) -> None:
+        if self.busy or self.closing:
+            self.status.set("AI status: wait for the current request before changing credentials")
+            return
+        try:
+            store = CredentialStore()
+        except (CredentialStoreError, OSError):
+            messagebox.showerror("Secure storage unavailable", "JARVIS could not access Windows Credential Manager. No key was saved.", parent=self.root)
+            return
+        key = simpledialog.askstring(
+            "Save Gemini API key",
+            "Enter your Gemini API key. It will be stored in Windows Credential Manager, not in a file.",
+            show="*",
+            parent=self.root,
+        )
+        if key is None:
+            return
+        key = key.strip()
+        if not ((key.startswith("AQ.") and len(key) >= 40) or (key.startswith("AIza") and len(key) >= 30)):
+            messagebox.showerror("Key format not recognized", "Expected a Gemini key beginning with AQ. or AIza. The key was not saved.", parent=self.root)
+            return
+        try:
+            store.set_secret("gemini.api_key", key)
+        except (ValueError, CredentialStoreError, OSError):
+            messagebox.showerror("Save failed", "Windows Credential Manager could not save the key. The key was not displayed or written to a file.", parent=self.root)
+            return
+        # Drop this local reference; never echo or log the credential.
+        key = ""
+        messagebox.showinfo("Key saved", "Gemini key saved in Windows Credential Manager. Select Google Gemini and press Apply to use it.", parent=self.root)
 
     def send(self, event=None) -> None:
         if self.busy or self.closing:
@@ -112,7 +181,7 @@ class JarvisWindow:
 
         self.busy = True
         self.send_button.configure(state="disabled")
-        self.status.set("AI status: generating response…")
+        self.status.set(f"AI status: generating with {self.provider_name}…")
 
         def work():
             try:
@@ -138,7 +207,7 @@ class JarvisWindow:
         self._append("JARVIS", response)
         self.busy = False
         self.send_button.configure(state="normal")
-        self.status.set("AI status: response finished · Ollama local model")
+        self.status.set(f"AI status: response finished · {self.provider_name}")
         self.entry.focus_set()
 
     def check_status(self) -> None:
@@ -148,10 +217,11 @@ class JarvisWindow:
         self.busy = True
         self.send_button.configure(state="disabled")
         self.status.set("AI status: testing with a real generation request…")
+        provider = self.provider
 
         def work():
             try:
-                result = check_provider(self.provider, timeout_seconds=15.0)
+                result = check_provider(provider, timeout_seconds=15.0)
                 payload = (result.healthy, result.detail)
             except Exception:
                 payload = (False, "Provider health check failed unexpectedly.")
