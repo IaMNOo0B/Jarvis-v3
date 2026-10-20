@@ -154,3 +154,31 @@ def launch_allowlisted_app(app_name: str) -> LaunchResult:
     except OSError:
         return LaunchResult(False, app, f"Windows could not start {app.title()}.")
     return LaunchResult(True, app, f"Windows accepted the launch request for {app.title()}. App visibility has not been verified.")
+
+
+def parse_notepad_type_request(message: str) -> str | None:
+    """Parse explicit requests to place provided text in a blank Notepad document."""
+    import re
+
+    text = message.strip()
+    if not text or len(text) > 5000:
+        return None
+    patterns = (
+        r"^(?:jarvis[, ]+)?(?:(?:can|could) you )?(?:please )?(?:open|launch|start) notepad(?:,?\s+and(?:\s+then)?|,?\s+then)\s+(?:type|write|enter|put)\s+(.+)$",
+        r"^(?:jarvis[, ]+)?notepad\s+(?:kholo|khol)\s+(?:aur|and)\s+(?:likho|type|write)\s+(.+)$",
+        r"^(?:please )?(?:type|write|enter)\s+(.+?)\s+(?:in|into) notepad$",
+    )
+    captured = None
+    for pattern in patterns:
+        match = re.fullmatch(pattern, text, flags=re.IGNORECASE | re.DOTALL)
+        if match:
+            captured = match.group(1).strip()
+            break
+    if captured is None:
+        return None
+    if len(captured) >= 2 and captured[0] == captured[-1] and captured[0] in {"'", '"'}:
+        captured = captured[1:-1]
+    captured = captured.strip()
+    if not captured or len(captured) > 2000:
+        return None
+    return captured
