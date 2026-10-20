@@ -11,7 +11,7 @@ from typing import Literal
 
 from jarvis.learning import Episode, LearningStore
 
-Outcome = Literal["response_generated", "action_accepted", "action_failed", "provider_failed"]
+Outcome = Literal["response_generated", "action_accepted", "action_verified", "action_failed", "action_partial", "action_unknown", "provider_failed"]
 
 
 def redact_task(text: str) -> str:
@@ -47,7 +47,10 @@ class AutomaticLearning:
         allowed = {
             "response_generated",
             "action_accepted",
+            "action_verified",
             "action_failed",
+            "action_partial",
+            "action_unknown",
             "provider_failed",
         }
         if outcome not in allowed:
@@ -58,6 +61,9 @@ class AutomaticLearning:
         labels = {
             "response_generated": ("low", "A response was generated; user-goal completion is unverified."),
             "action_accepted": ("low", "The OS accepted the launch request; app visibility is unverified."),
+            "action_verified": ("high", "The specific UI postcondition was read back exactly; broader user-goal completion is not implied."),
+            "action_partial": ("medium", "A multi-step action partially ran; inspect the desktop before retrying."),
+            "action_unknown": ("low", "A desktop side effect may have occurred; inspect state before retrying."),
             "action_failed": ("high", "The action adapter reported failure."),
             "provider_failed": ("high", "The provider did not produce a usable response."),
         }
