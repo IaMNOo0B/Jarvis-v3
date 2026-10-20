@@ -87,7 +87,7 @@ Sir types one natural-language message in the JARVIS window. JARVIS classifies t
 - GUI multiline output formatting was corrected in the working branch.
 - Public research, archive, task receipts and reviewable learning/self-healing records exist as bounded prototype modules.
 - jarvis/orchestration.py now defines a fail-closed capability registry, approval gate, cancellation checkpoints and explicit evidence outcomes. Unit tests were added in tests/test_orchestration.py.
-- The orchestration module is not yet wired into GUI task dispatch.
+- The plan runtime is not yet wired into GUI task dispatch, and concrete research/app handlers have not yet been registered by the GUI. Stop/Esc cancellation is not yet wired into the GUI.
 - CI result for the latest head is not confirmed. The latest branch has not been verified on a real Windows PC. Stop/Esc cancellation is still not wired into the GUI; cancellation currently exists as a tested primitive and orchestration checkpoint.
 - PR #2 remains draft/open/unmerged; do not install this branch as a final release.
 
