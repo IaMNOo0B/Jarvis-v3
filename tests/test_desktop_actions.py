@@ -6,14 +6,28 @@ from jarvis.desktop_actions import launch_allowlisted_app, parse_app_launch_requ
 
 class DesktopLaunchTests(unittest.TestCase):
     def test_exact_launch_phrases(self):
-        self.assertEqual(parse_app_launch_request("open notepad"), "notepad")
-        self.assertEqual(parse_app_launch_request("Launch Chrome"), "chrome")
-        self.assertEqual(parse_app_launch_request("start notepad"), "notepad")
+        for phrase, expected in (
+            ("open notepad", "notepad"),
+            ("Launch Chrome", "chrome"),
+            ("start notepad", "notepad"),
+            ("notepad kholo", "notepad"),
+            ("chrome khol", "chrome"),
+            ("kholo chrome", "chrome"),
+            ("Jarvis open notepad", "notepad"),
+        ):
+            with self.subTest(phrase=phrase):
+                self.assertEqual(parse_app_launch_request(phrase), expected)
 
     def test_extra_words_do_not_trigger_launch(self):
-        self.assertIsNone(parse_app_launch_request("open notepad and type hello"))
-        self.assertIsNone(parse_app_launch_request("open powershell"))
-        self.assertIsNone(parse_app_launch_request("please open chrome"))
+        for phrase in (
+            "open notepad and type hello",
+            "open powershell",
+            "please open chrome",
+            "close chrome",
+            "notepad kholo abhi",
+        ):
+            with self.subTest(phrase=phrase):
+                self.assertIsNone(parse_app_launch_request(phrase))
 
     def test_unknown_app_is_rejected(self):
         result = launch_allowlisted_app("powershell")
