@@ -55,7 +55,8 @@ This is a target layout, not a claim that these components already exist. Introd
 
 ### M4 — Windows desktop actions
 - [ ] App registry and deterministic verb-object intent handling.
-- [x] Define a UI Automation-first adapter contract and allow-listed app/action registry (no live adapter wired yet).\n- [ ] UI Automation preferred over coordinate clicking in the live Windows adapter.
+- [x] Define a UI Automation-first adapter contract and allow-listed app/action registry (no live adapter wired yet).
+- [ ] UI Automation preferred over coordinate clicking in the live Windows adapter.
 - [ ] Shell guard, visible activity/status, cancellation, and postcondition checks in live desktop integration.
 - [ ] Screenshot/image data held in memory only unless the user explicitly requests otherwise.
 - [ ] No claim of Windows support without a real Windows run.
