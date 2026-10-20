@@ -33,6 +33,29 @@ class RuntimeResult:
     step_results: tuple[RuntimeStepResult, ...] = ()
 
 
+def action_event_for_runtime(result: RuntimeResult) -> tuple[str, str]:
+    """Map a desktop runtime result to a UI event without hiding partial work.
+
+    Runtime status is authoritative: pre-action cancellation stays cancelled,
+    cancellation during a side effect is unknown, and known prior work followed
+    by a stopped/failed step remains partial rather than being mislabeled unknown.
+    """
+    if result.status == "partial":
+        return "action_partial", result.detail
+    if result.status == "unknown":
+        detail = result.detail
+        if "retry" not in detail.casefold():
+            detail += " Inspect the desktop before retrying."
+        return "action_unknown", detail
+    if result.status == "cancelled":
+        return "cancelled", result.detail
+    if result.status == "verified":
+        return "action_verified", result.detail
+    if result.status == "attempted" and result.capability_result is not None:
+        return "action_accepted", result.detail
+    return "action_failed", result.detail
+
+
 _CAPABILITIES_FOR_INTENT = {
     "launch_allowlisted_app": ("launch_app",),
     "launch_allowlisted_apps": ("launch_app",),
