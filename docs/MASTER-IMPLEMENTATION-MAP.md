@@ -23,7 +23,7 @@ Sir types one natural-language message in the JARVIS window. JARVIS classifies t
 |---|---|---|
 | Conversation/provider | Text GUI; Ollama and explicit Gemini provider paths | Provider failure/timeout tests, clear status, no silent cloud fallback, live provider smoke tests |
 | Intent/planning | Deterministic supported-intent planner | Natural-language routing for known safe actions; clarify ambiguity; reject unknown actions |
-| Orchestration | jarvis/orchestration.py capability registry, approval boundary, cancellation checkpoints, evidence-labelled outcomes | Wire into GUI and registered action handlers; per-step plan journal; stop propagation; integration tests |
+| Orchestration | Registered capability registry, planner-to-runtime bridge, GUI dispatch for bounded research and allowlisted app launch, Stop/Esc cancellation checkpoints | Integration regression tests, per-step plan journal, real Windows UI automation and verified postconditions |
 | Desktop | Allowlisted Notepad/Chrome launch; UIA adapter contract | Real Windows UIA backend; semantic selectors; focus/type/read/verify; no coordinate-only automation; app registry and shell guard |
 | Verification | UI action postcondition contract and task receipts | Each action supplies observable evidence; distinguish attempted/failed/unknown/verified; no fake success |
 | Permissions | Fail-closed SafetyGate for supported actions | Centralize every side effect through policy; approvals for external/destructive/irreversible actions; test bypass attempts |
@@ -87,7 +87,7 @@ Sir types one natural-language message in the JARVIS window. JARVIS classifies t
 - GUI multiline output formatting was corrected in the working branch.
 - Public research, archive, task receipts and reviewable learning/self-healing records exist as bounded prototype modules.
 - jarvis/orchestration.py now defines a fail-closed capability registry, approval gate, cancellation checkpoints and explicit evidence outcomes. Unit tests were added in tests/test_orchestration.py.
-- The plan runtime is not yet wired into GUI task dispatch, and concrete research/app handlers have not yet been registered by the GUI. Stop/Esc cancellation is not yet wired into the GUI.
+- GUI dispatch now routes explicit Wikipedia/GitHub research and allowlisted app launches through the registered capability registry and task runtime. Stop/Esc cancellation is wired to chat generation, research and provider health checks; launch cancellation warns that the app may already have opened. Cancellation cannot forcibly interrupt an in-flight provider/network call; it discards the result at the next safe boundary.
 - CI result for the latest head is not confirmed. The latest branch has not been verified on a real Windows PC. Stop/Esc cancellation is still not wired into the GUI; cancellation currently exists as a tested primitive and orchestration checkpoint.
 - PR #2 remains draft/open/unmerged; do not install this branch as a final release.
 
