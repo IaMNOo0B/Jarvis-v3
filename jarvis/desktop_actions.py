@@ -1,6 +1,7 @@
 """Allow-listed Windows app launching; never launch arbitrary paths or shell commands."""
 
 import os
+import re
 import shutil
 import subprocess
 from dataclasses import dataclass
@@ -79,6 +80,36 @@ def parse_app_launch_request(message: str) -> str | None:
         if app_name == canonical or app_name in aliases:
             return canonical
     return None
+
+
+def parse_app_launch_batch(message: str) -> tuple[str, ...] | None:
+    """Parse a short, explicit sequence of allow-listed app launches.
+
+    Examples: "open Notepad and open Calculator" and "Notepad kholo aur
+    Calculator kholo". A bare second app name is accepted only after an
+    explicit first launch command ("open Notepad and Calculator"). Unknown,
+    mixed-purpose, repeated, or oversized sequences fail closed.
+    """
+    text = message.strip()
+    if not text or len(text) > 240:
+        return None
+    parts = re.split(r"\\s+(?:and\\s+then|and|then|aur)\\s+", text, flags=re.IGNORECASE)
+    if len(parts) < 2 or len(parts) > 5:
+        return None
+
+    apps: list[str] = []
+    for index, part in enumerate(parts):
+        app = parse_app_launch_request(part)
+        if app is None and index > 0:
+            alias = part.casefold().strip().strip(".,!?;:")
+            for canonical, aliases in APP_ALIASES.items():
+                if alias == canonical or alias in aliases:
+                    app = canonical
+                    break
+        if app is None or app in apps:
+            return None
+        apps.append(app)
+    return tuple(apps)
 
 
 def launch_app_with_approval(app_name: str, *, user_approved: bool) -> LaunchResult:
