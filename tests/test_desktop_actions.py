@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import patch
 
-from jarvis.desktop_actions import launch_allowlisted_app, launch_app_with_approval, parse_app_launch_request
+from jarvis.desktop_actions import launch_allowlisted_app, launch_app_with_approval, parse_app_launch_request, parse_notepad_type_request
 
 
 class DesktopLaunchTests(unittest.TestCase):
@@ -29,6 +29,16 @@ class DesktopLaunchTests(unittest.TestCase):
         ):
             with self.subTest(phrase=phrase):
                 self.assertEqual(parse_app_launch_request(phrase), expected)
+
+    def test_explicit_notepad_text_parser_supports_english_hinglish_and_quoted_text(self):
+        self.assertEqual(parse_notepad_type_request("open Notepad and type Hello Sir"), "Hello Sir")
+        self.assertEqual(parse_notepad_type_request('type "Hello Sir" in Notepad'), "Hello Sir")
+        self.assertEqual(parse_notepad_type_request("Notepad kholo aur likho Assalam o alaikum"), "Assalam o alaikum")
+
+    def test_notepad_text_parser_fails_closed_on_empty_ambiguous_or_oversized_text(self):
+        self.assertIsNone(parse_notepad_type_request("open Notepad and type"))
+        self.assertIsNone(parse_notepad_type_request("open Notepad and type " + "x" * 2001))
+        self.assertIsNone(parse_notepad_type_request("open Notepad and type hello then open Chrome"))
 
     def test_extra_words_do_not_trigger_launch(self):
         for phrase in (
