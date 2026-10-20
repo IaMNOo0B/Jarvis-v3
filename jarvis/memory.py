@@ -85,3 +85,36 @@ class MemoryStore:
     @staticmethod
     def _from_row(row: sqlite3.Row) -> MemoryRecord:
         return MemoryRecord(int(row["id"]), row["content"], row["source"], row["created_at"])
+
+
+def parse_natural_remember_request(request: str) -> str | None:
+    """Extract explicit natural-language remember requests; never infer memories."""
+    text = request.strip()
+    lowered = text.casefold()
+    prefixes = (
+        "i want you to remember that ",
+        "jarvis, please remember that ", "jarvis please remember that ",
+        "please remember that ", "remember that ",
+        "jarvis, remember that ", "jarvis remember that ",
+        "please remember ", "remember ",
+    )
+    for prefix in prefixes:
+        if lowered.startswith(prefix):
+            content = text[len(prefix):].strip()
+            # Do not mistake a reminder command for a memory request.
+            if content.casefold().startswith(("me to ", "me in ", "me at ", "me tomorrow ")):
+                return None
+            return content or None
+    return None
+
+
+def is_sensitive_memory_request(content: str) -> bool:
+    """Conservatively reject explicit attempts to store credentials or access secrets."""
+    import re
+
+    patterns = (
+        r"\bpassword\b", r"\bpasscode\b", r"\bapi[ _-]?key\b",
+        r"\baccess token\b", r"\bprivate key\b", r"\brecovery code\b",
+        r"\bone[- ]time code\b", r"\botp\b", r"\bsecret token\b",
+    )
+    return any(re.search(pattern, content, re.IGNORECASE) for pattern in patterns)
