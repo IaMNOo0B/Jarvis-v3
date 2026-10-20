@@ -16,18 +16,24 @@ class LaunchResult:
 
 
 def parse_app_launch_request(message: str) -> str | None:
-    """Recognize narrow English/Hinglish launch phrases for two allow-listed apps."""
-    words = message.strip().casefold().split()
+    """Recognize natural English/Hinglish requests for two allow-listed apps.
+
+    This is intentionally a small deterministic intent recognizer, not an LLM
+    deciding arbitrary commands. Unknown apps and ambiguous text stay in chat.
+    """
+    words = message.casefold().replace(",", " ").replace("?", " ").replace(".", " ").split()
+    if not words or len(words) > 24:
+        return None
+    # Remove polite wrappers while preserving a strict verb + allow-listed app match.
+    wrappers = {"jarvis", "please", "can", "could", "you", "will", "would", "kindly", "zara", "bhai", "sir", "for", "me", "now", "abhi", "please"}
+    words = [word for word in words if word not in wrappers]
+    apps = {"notepad", "chrome"}
+    launch_verbs = {"open", "launch", "start", "kholo", "khol", "kholna", "chalao", "shuru"}
     if len(words) == 2:
-        if words[0] in {"open", "launch", "start"} and words[1] in {"notepad", "chrome"}:
+        if words[0] in launch_verbs and words[1] in apps:
             return words[1]
-        if words[0] in {"kholo"} and words[1] in {"notepad", "chrome"}:
-            return words[1]
-        if words[0] in {"notepad", "chrome"} and words[1] in {"kholo", "khol", "open"}:
+        if words[1] in {"kholo", "khol", "open", "chalao"} and words[0] in apps:
             return words[0]
-    if len(words) == 3 and words[0] in {"jarvis", "please"}:
-        if words[1] in {"open", "launch", "start"} and words[2] in {"notepad", "chrome"}:
-            return words[2]
     return None
 
 
