@@ -7,7 +7,7 @@ from tkinter import messagebox, scrolledtext, simpledialog, ttk
 
 from jarvis.chat_service import ChatService
 from jarvis.credentials import CredentialStore, CredentialStoreError
-from jarvis.desktop_actions import launch_allowlisted_app, parse_app_launch_request
+from jarvis.desktop_actions import launch_app_with_approval, parse_app_launch_request
 from jarvis.health import check_provider
 from jarvis.provider_config import ProviderConfig, build_provider
 
@@ -170,7 +170,7 @@ class JarvisWindow:
 
             def launch():
                 try:
-                    result = launch_allowlisted_app(app_name)
+                    result = launch_app_with_approval(app_name, user_approved=True)
                     event = (result.success, result.detail)
                 except Exception:
                     event = (False, "Unexpected launch error. No further action was taken.")
