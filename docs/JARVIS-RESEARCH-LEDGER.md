@@ -72,7 +72,9 @@ Every new study gets: name, canonical URL/source, date checked, license, mechani
 ## V3 implementation receipt — 2026-10-20
 
 - **CI:** GitHub Actions run [39432151659](https://github.com/IaMNOo0B/Jarvis-v3/actions/runs/39432151659), commit `4ed9a5aa766a744bf306db3681632ee51eeb6dd4`, completed successfully. The job ran the standard-library unittest suite. This is automated test evidence, not a Windows end-to-end receipt.
-- **Safe repair ledger:** `jarvis/self_healing.py` stores bounded repair proposals, test receipts and review decisions. A passing receipt is required before approval for manual review. It does not run generated code, modify the live app, or apply a patch.
+- **Safe repair ledger:** `jarvis/self_healing.py` stores bounded repair proposals, test receipts and review decisions. A passing receipt is required before approval for manual review. GUI provider failures now automatically create a reviewable diagnosis proposal. It does not run generated code, modify the live app, or apply a patch.
 - **Automatic task reflection:** chat replies and allow-listed app launch attempts are recorded with evidence-labelled outcomes; these labels do not claim the user’s overall goal succeeded.
 - **GUI response dispatch:** corrected the worker event payload to include both task and response, matching the UI handler contract.
 - **Research ledger scope:** this file remains a compact index, not the full verbatim original ledger or a complete archive of all research artifacts. Individual study URLs, licensing details, exact evidence and original source files still need to be imported study-by-study before those entries can be considered fully audited.
+
+- **Provider failure loop:** commit `aa42f1db9f096357c390ac5709222298b6edaeff` creates a bounded diagnosis proposal when the GUI receives a provider-failure response. The Actions unit-test job passed in run [39432373560](https://github.com/IaMNOo0B/Jarvis-v3/actions/runs/39432373560). This is a proposal, not an automatic repair or proof of a live provider failure.
