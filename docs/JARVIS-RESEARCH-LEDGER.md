@@ -110,3 +110,11 @@ Every new study gets: name, canonical URL/source, date checked, license, mechani
 - Fixed GUI output strings that were rendering literal `\\n` characters instead of actual line breaks in reminders, memories, help, task history, and research results.
 - Expanded the existing Actions push trigger to include `docs/**` and `feat/**` branches so branch commits should also initiate the standard-library suite.
 - **CI status remains unconfirmed for the newest commit** through the available workflow-run lookup. Do not claim the newest tree passed until a successful run is visible. Windows GUI behavior remains unverified.
+
+## Windows setup scripts — 2026-10-20
+
+- Added `Install_JARVIS.bat`: checks for Python 3.12+, creates a local virtual environment, checks Tkinter and SQLite, and launches the GUI without downloading dependencies or models.
+- Added `Launch_JARVIS.bat` for console-visible diagnostics.
+- Added `Update_JARVIS.bat`: refuses a dirty Git working tree and uses only `git pull --ff-only`; it never resets or force-overwrites local changes.
+- Added `.gitignore` entries for local runtime databases, user data, Python environments and caches.
+- **Verification status:** scripts and README are committed, but they have not been executed on Windows. This is a setup-script milestone, not a signed installer or release. The latest CI status remains unconfirmed.
