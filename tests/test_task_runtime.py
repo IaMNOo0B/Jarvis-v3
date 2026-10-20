@@ -3,7 +3,7 @@ import unittest
 from jarvis.cancellation import CancellationToken
 from jarvis.orchestration import Capability, CapabilityRegistry, TaskOutcome
 from jarvis.task_planner import TaskPlanner
-from jarvis.task_runtime import execute_plan
+from jarvis.task_runtime import RuntimeResult, action_event_for_runtime, execute_plan
 
 
 class TaskRuntimeTests(unittest.TestCase):
@@ -128,6 +128,39 @@ class TaskRuntimeTests(unittest.TestCase):
         result = execute_plan(bad_plan, registry=self.registry, approved=True)
         self.assertEqual(result.status, "blocked")
         self.assertEqual(self.calls, [])
+
+    def test_runtime_event_mapping_preserves_cancelled_unknown_and_partial_outcomes(self):
+        partial = RuntimeResult(
+            "launch_allowlisted_apps", "partial",
+            "Partial execution: one app accepted; remaining actions skipped.",
+        )
+        unknown = RuntimeResult(
+            "notepad_type_text", "unknown",
+            "Cancellation arrived during typing; inspect the desktop before retrying.",
+        )
+        cancelled = RuntimeResult(
+            "launch_allowlisted_app", "cancelled",
+            "Task was cancelled before the capability started.",
+        )
+        self.assertEqual(action_event_for_runtime(partial)[0], "action_partial")
+        self.assertEqual(action_event_for_runtime(unknown)[0], "action_unknown")
+        self.assertEqual(action_event_for_runtime(cancelled)[0], "cancelled")
+
+    def test_runtime_event_mapping_does_not_hide_completed_postconditions(self):
+        verified = RuntimeResult(
+            "notepad_type_text", "verified", "Notepad read-back matched.",
+            "notepad_readback_exact_match",
+            TaskOutcome("type_notepad_text", "verified", "Notepad read-back matched.",
+                        "notepad_readback_exact_match"),
+        )
+        attempted = RuntimeResult(
+            "launch_allowlisted_app", "attempted", "Windows accepted the launch.",
+            "os_process_launch_accepted",
+            TaskOutcome("launch_app", "attempted", "Windows accepted the launch.",
+                        "os_process_launch_accepted"),
+        )
+        self.assertEqual(action_event_for_runtime(verified)[0], "action_verified")
+        self.assertEqual(action_event_for_runtime(attempted)[0], "action_accepted")
 
     def test_research_uses_only_registered_handler(self):
         plan = self.planner.plan("research Wikipedia artificial intelligence")
