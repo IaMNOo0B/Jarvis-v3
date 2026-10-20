@@ -494,6 +494,10 @@ class JarvisWindow:
             prefix = next(p for p in prefix_map[plan.intent] if lowered.startswith(p))
             query = message.strip()[len(prefix):].strip()
             source = "wikipedia" if plan.intent == "research_wikipedia" else "github"
+            try:
+                self.task_receipts.record_step(message, f"public {source.title()} lookup", "started", evidence="Explicit user-requested public lookup.")
+            except (ValueError, OSError):
+                self._record_activity("task_step_receipt", "not_saved", "research still proceeds; step receipt could not be stored")
             token = self._begin_work()
             self.status.set(f"Research: searching public {source.title()} metadata…")
 
@@ -553,6 +557,10 @@ class JarvisWindow:
             if not approved:
                 self._append("JARVIS", "Cancelled. No app was launched.")
                 return
+            try:
+                self.task_receipts.record_step(message, f"launch {app_name}", "started", evidence="User approved the allowlisted app launch.")
+            except (ValueError, OSError):
+                self._record_activity("task_step_receipt", "not_saved", "launch still proceeds; step receipt could not be stored")
             token = self._begin_work()
             self.status.set(f"Action: launching {app_name.title()}…")
 
@@ -612,6 +620,10 @@ class JarvisWindow:
         activity_status = {"action_accepted": "accepted", "action_failed": "failed", "action_unknown": "unknown"}.get(outcome, "failed")
         self._record_activity("desktop_launch", activity_status)
         try:
+            self.task_receipts.record_step(task, "launch allowlisted app", outcome, evidence=detail)
+        except (ValueError, OSError):
+            self._record_activity("task_step_receipt", "not_saved", "launch outcome remains visible but step receipt was not saved")
+        try:
             receipt = self.task_receipts.record(task, outcome, evidence=detail)
             self._record_activity("task_receipt", receipt["outcome"], f"id={receipt['id']}")
         except (ValueError, OSError):
@@ -662,6 +674,10 @@ class JarvisWindow:
         if self.closing:
             return
         outcome = "research_succeeded" if success else "research_failed"
+        try:
+            self.task_receipts.record_step(task, "public source lookup", "verified" if success else "failed", evidence="Lookup returned a report; independent fact verification is not implied." if success else "Source lookup failed or was unavailable.")
+        except (ValueError, OSError):
+            self._record_activity("task_step_receipt", "not_saved", "research result remains visible but step receipt was not saved")
         try:
             receipt = self.task_receipts.record(task, outcome, evidence="Public-source lookup returned a report; independent verification is not implied." if success else "Research source unavailable or failed.")
             self._record_activity("task_receipt", receipt["outcome"], f"id={receipt['id']}")
