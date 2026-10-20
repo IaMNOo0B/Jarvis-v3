@@ -46,7 +46,7 @@ class CapabilityTests(unittest.TestCase):
     def test_only_explicit_capabilities_registered(self):
         self.assertEqual(
             set(self.registry._items),
-            {"launch_app", "open_url", "type_notepad_text", "research_wikipedia", "research_github"},
+            {"launch_app", "open_url", "preflight_notepad_uia", "type_notepad_text", "research_wikipedia", "research_github"},
         )
 
     def test_research_is_bounded_and_returns_source_evidence(self):
@@ -111,6 +111,23 @@ class CapabilityTests(unittest.TestCase):
             )
         self.assertEqual(outcome.status, "blocked")
         opener.assert_not_called()
+
+    def test_notepad_preflight_verifies_fixed_ui_automation_helper_availability(self):
+        backend = FakeUIAutomationBackend()
+        registry = build_capability_registry(self.research, ui_backend=backend)
+        result = run_capability("preflight_notepad_uia", {}, registry=registry)
+        self.assertEqual(result.status, "verified")
+        self.assertEqual(result.evidence, "powershell_uia_helper_available")
+        self.assertEqual(backend.calls, [])
+
+    def test_notepad_preflight_fails_before_any_desktop_action_when_unavailable(self):
+        backend = FakeUIAutomationBackend()
+        backend.available = False
+        registry = build_capability_registry(self.research, ui_backend=backend)
+        result = run_capability("preflight_notepad_uia", {}, registry=registry)
+        self.assertEqual(result.status, "failed")
+        self.assertIn("Notepad was not launched", result.detail)
+        self.assertEqual(backend.calls, [])
 
     def test_notepad_text_entry_rejects_utf16_oversize_before_touching_backend(self):
         backend = FakeUIAutomationBackend()
