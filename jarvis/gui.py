@@ -1,6 +1,7 @@
 """Small no-console Windows chat window with explicitly approved app launching."""
 
 import queue
+from pathlib import Path
 import threading
 import tkinter as tk
 from tkinter import messagebox, scrolledtext, simpledialog, ttk
@@ -13,6 +14,7 @@ from jarvis.auto_learning import AutomaticLearning
 from jarvis.activity import ActivityJournal
 
 from jarvis.chat_service import ChatService
+from jarvis.knowledge_base import KnowledgeBase
 from jarvis.credentials import CredentialStore, CredentialStoreError
 from jarvis.desktop_actions import launch_app_with_approval, parse_app_launch_request
 from jarvis.health import check_provider
@@ -27,7 +29,7 @@ class JarvisWindow:
         self.root.minsize(580, 430)
         self.provider_name = "ollama"
         self.provider = build_provider()
-        self.service = ChatService(self.provider)
+        self.service = self._make_service(self.provider)
         self.busy = False
         self.closing = False
         self._events: queue.Queue[tuple[str, object]] = queue.Queue()
@@ -283,10 +285,15 @@ class JarvisWindow:
         credentials = CredentialStore() if name == "gemini" else None
         provider = build_provider(ProviderConfig(name=name), credentials=credentials)
         self.provider = provider
-        self.service = ChatService(provider)
+        self.service = self._make_service(provider)
         self.provider_name = name
         self._record_activity("provider_select", "selected", name)
         self.status.set(f"Provider selected: {'Google Gemini' if name == 'gemini' else 'Local Ollama'} · run Check AI status to test")
+
+    def _make_service(self, provider):
+        project_root = Path(__file__).resolve().parent.parent
+        roots = [project_root / "docs", project_root / "knowledge"]
+        return ChatService(provider, KnowledgeBase(roots))
 
     def apply_provider(self) -> None:
         if self.busy or self.closing:
