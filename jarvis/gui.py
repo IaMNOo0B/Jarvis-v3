@@ -24,7 +24,7 @@ from jarvis.cancellation import CancellationToken, OperationCancelled
 from jarvis.chat_service import ChatService
 from jarvis.knowledge_base import KnowledgeBase
 from jarvis.credentials import CredentialStore, CredentialStoreError
-from jarvis.desktop_actions import launch_app_with_approval, parse_app_launch_request
+from jarvis.desktop_actions import parse_app_launch_batch, parse_app_launch_request
 from jarvis.health import check_provider
 from jarvis.provider_config import ProviderConfig, build_provider
 
@@ -381,6 +381,7 @@ class JarvisWindow:
             "response_generated": "response generated; goal completion unverified",
             "action_accepted": "OS accepted action; final state unverified",
             "action_failed": "action failed",
+            "action_partial": "partially completed; check state before retrying",
             "action_unknown": "outcome unknown; check before retrying",
             "provider_failed": "provider failed",
             "research_succeeded": "public-source lookup returned results",
@@ -634,32 +635,43 @@ class JarvisWindow:
             return
 
         app_name = parse_app_launch_request(message)
-        if app_name:
-            # An explicit, unambiguous request to open a fixed allow-listed local
-            # app is the per-request authorization. Do not add a repetitive modal.
+        app_names = parse_app_launch_batch(message)
+        if app_name and not app_names:
+            app_names = (app_name,)
+        if app_names and plan.intent in {"launch_allowlisted_app", "launch_allowlisted_apps"}:
+            # An explicit, unambiguous request for fixed allow-listed apps is the
+            # per-request authorization. Multi-app plans execute sequentially.
+            display_apps = ", ".join(name.title() for name in app_names)
             try:
-                self.task_receipts.record_step(message, f"launch {app_name}", "started", evidence="Sir explicitly requested an allow-listed local app launch.")
+                self.task_receipts.record_step(
+                    message, f"launch {display_apps}", "started",
+                    evidence="Sir explicitly requested these allow-listed local app launches.",
+                )
             except (ValueError, OSError):
                 self._record_activity("task_step_receipt", "not_saved", "launch still proceeds; step receipt could not be stored")
             token = self._begin_work()
-            self.status.set(f"Action: launching {app_name.title()}…")
+            self.status.set(f"Action: launching {display_apps}…")
 
             def launch():
+                runtime = None
                 try:
                     token.raise_if_cancelled()
                     runtime = execute_plan(
                         plan,
                         registry=self.capability_registry,
-                        arguments={"app": app_name},
                         approved=True,
+                        cancellation=token,
                     )
                     outcome = runtime.capability_result
                     if token.cancelled:
-                        event = ("action_unknown", "Cancellation arrived during app launch. The app may have opened; check the desktop before retrying.")
-                    elif runtime.status != "attempted" or outcome is None:
-                        event = ("action_failed", runtime.detail)
+                        detail = runtime.detail if runtime is not None else "An app launch may have occurred; check the desktop before retrying."
+                        event = ("action_unknown", f"Stop requested during launch sequence. {detail} Check the desktop before retrying.")
+                    elif runtime.status == "partial":
+                        event = ("action_partial", runtime.detail)
+                    elif runtime.status == "attempted" and outcome is not None:
+                        event = ("action_accepted", runtime.detail)
                     else:
-                        event = ("action_accepted", outcome.detail)
+                        event = ("action_failed", runtime.detail)
                 except OperationCancelled:
                     self._post_event("cancelled", message)
                     return
@@ -697,10 +709,10 @@ class JarvisWindow:
     def _finish_action(self, outcome: str, detail: str, task: str) -> None:
         if self.closing:
             return
-        activity_status = {"action_accepted": "accepted", "action_failed": "failed", "action_unknown": "unknown"}.get(outcome, "failed")
+        activity_status = {"action_accepted": "accepted", "action_failed": "failed", "action_partial": "partial", "action_unknown": "unknown"}.get(outcome, "failed")
         self._record_activity("desktop_launch", activity_status)
         try:
-            self.task_receipts.record_step(task, "launch allowlisted app", {"action_accepted": "attempted", "action_failed": "failed", "action_unknown": "unknown"}.get(outcome, "failed"), evidence=detail)
+            self.task_receipts.record_step(task, "launch allowlisted app sequence", {"action_accepted": "attempted", "action_failed": "failed", "action_partial": "partial", "action_unknown": "unknown"}.get(outcome, "failed"), evidence=detail)
         except (ValueError, OSError):
             self._record_activity("task_step_receipt", "not_saved", "launch outcome remains visible but step receipt was not saved")
         try:
@@ -715,7 +727,7 @@ class JarvisWindow:
             self._record_activity("automatic_reflection", "failed", "action result was not recorded")
         self._append("JARVIS", detail)
         self._finish_work_controls()
-        self.status.set({"action_accepted": "Action: launch request accepted; visibility unverified", "action_unknown": "Action: outcome unknown; check desktop before retrying"}.get(outcome, "Action: not completed"))
+        self.status.set({"action_accepted": "Action: launch requests accepted; visibility unverified", "action_partial": "Action: partially completed; check desktop before retrying", "action_unknown": "Action: outcome unknown; check desktop before retrying"}.get(outcome, "Action: not completed"))
 
     def _finish_response(self, task: str, response: str) -> None:
         if self.closing:
