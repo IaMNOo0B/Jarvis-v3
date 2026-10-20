@@ -46,14 +46,18 @@ class TaskPlannerTests(unittest.TestCase):
             with self.subTest(request=request):
                 self.assertNotEqual(self.planner.plan(request).intent, "open_url")
 
-    def test_explicit_notepad_typing_creates_verified_two_action_plan(self):
+    def test_explicit_notepad_typing_plan_preflights_before_launch(self):
         plan = self.planner.plan("open Notepad and type Hello Sir")
         self.assertEqual(plan.intent, "notepad_type_text")
         action_steps = [step for step in plan.steps if step.action is not None]
-        self.assertEqual([step.action for step in action_steps], ["launch_app", "type_notepad_text"])
-        self.assertEqual(action_steps[0].target, "notepad")
-        self.assertEqual(action_steps[1].target, "blank document")
-        self.assertEqual(action_steps[1].input_text, "Hello Sir")
+        self.assertEqual(
+            [step.action for step in action_steps],
+            ["preflight_notepad_uia", "launch_app", "type_notepad_text"],
+        )
+        self.assertIsNone(action_steps[0].target)
+        self.assertEqual(action_steps[1].target, "notepad")
+        self.assertEqual(action_steps[2].target, "blank document")
+        self.assertEqual(action_steps[2].input_text, "Hello Sir")
 
     def test_notepad_typing_with_missing_or_oversized_text_is_not_planned(self):
         self.assertNotEqual(self.planner.plan("open Notepad and type").intent, "notepad_type_text")
