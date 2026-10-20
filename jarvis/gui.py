@@ -11,6 +11,7 @@ from jarvis.reminders import ReminderStore
 from jarvis.memory import MemoryStore
 from jarvis.learning import LearningStore
 from jarvis.auto_learning import AutomaticLearning
+from jarvis.self_healing import RepairLedger
 from jarvis.activity import ActivityJournal
 
 from jarvis.chat_service import ChatService
@@ -37,6 +38,7 @@ class JarvisWindow:
         self.memory = MemoryStore()
         self.learning = LearningStore()
         self.auto_learning = AutomaticLearning(self.learning)
+        self.repairs = RepairLedger()
         self.activity = ActivityJournal()
         self._notified_reminders: set[int] = set()
 
@@ -420,6 +422,21 @@ class JarvisWindow:
             self._record_activity("automatic_reflection", reflection.outcome, f"episode={reflection.episode.episode_id}")
         except (ValueError, OSError):
             self._record_activity("automatic_reflection", "failed", "response outcome was not recorded")
+        if failure:
+            # Turn a known failure into a reviewable diagnosis task, never an auto-applied patch.
+            try:
+                repair = self.repairs.propose(
+                    failure_summary="AI provider request failed or returned no usable text.",
+                    proposed_change=(
+                        "Inspect provider selection, local service availability, timeout, and response parsing. "
+                        "Reproduce with a fake provider first; add a regression test before proposing a code patch. "
+                        "Do not retry indefinitely or change provider/security settings automatically."
+                    ),
+                    source_ref="gui-provider-failure",
+                )
+                self._record_activity("repair_proposal", "proposed", f"id={repair.repair_id}")
+            except (ValueError, OSError):
+                self._record_activity("repair_proposal", "not_saved", "failure diagnosis proposal could not be stored")
         self._append("JARVIS", response)
         self.busy = False
         self.send_button.configure(state="normal")
