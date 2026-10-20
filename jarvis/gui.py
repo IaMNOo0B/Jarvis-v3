@@ -1,10 +1,11 @@
-""""Small no-console Windows chat window. Desktop actions intentionally remain disabled."""
+"""Small no-console Windows chat window with explicitly approved app launching."""
 
 import threading
 import tkinter as tk
 from tkinter import messagebox, scrolledtext, ttk
 
 from jarvis.chat_service import ChatService
+from jarvis.desktop_actions import launch_allowlisted_app, parse_app_launch_request
 from jarvis.health import check_provider
 from jarvis.provider_config import build_provider
 
@@ -37,8 +38,8 @@ class JarvisWindow:
         self.entry.bind("<Return>", self.send)
         self.send_button = ttk.Button(compose, text="Send", command=self.send)
         self.send_button.pack(side="right")
-        ttk.Label(shell, text="Desktop actions are disabled in this build. No microphone is active.").pack(anchor="w", pady=(8, 0))
-        self._append("JARVIS", "Ready. Ask a question or use /help. The first local response may take a while while Ollama loads the model.")
+        ttk.Label(shell, text="App launching supports Notepad/Chrome with confirmation. No microphone is active.").pack(anchor="w", pady=(8, 0))
+        self._append("JARVIS", "Ready. Ask a question or use /help. Say “open Notepad” or “open Chrome” to request an approved app launch.")
         self.entry.focus_set()
         self.root.protocol("WM_DELETE_WINDOW", self.close)
 
@@ -56,6 +57,25 @@ class JarvisWindow:
             return
         self.entry.delete(0, "end")
         self._append("Sir", message)
+        app_name = parse_app_launch_request(message)
+        if app_name:
+            approved = messagebox.askyesno(
+                "Approve app launch",
+                f"Allow JARVIS to launch {app_name.title()} on this PC?",
+                parent=self.root,
+            )
+            if not approved:
+                self._append("JARVIS", "Cancelled. No app was launched.")
+                return
+            self.busy = True
+            self.send_button.configure(state="disabled")
+            self.status.set(f"Action: launching {app_name.title()}…")
+            def launch():
+                result = launch_allowlisted_app(app_name)
+                if not self.closing:
+                    self.root.after(0, lambda: self._finish_action(result.success, result.detail))
+            threading.Thread(target=launch, daemon=True).start()
+            return
         self.busy = True
         self.send_button.configure(state="disabled")
         self.status.set("AI status: generating response…")
@@ -67,6 +87,15 @@ class JarvisWindow:
             if not self.closing:
                 self.root.after(0, lambda: self._finish_response(response))
         threading.Thread(target=work, daemon=True).start()
+
+    def _finish_action(self, success: bool, detail: str) -> None:
+        if self.closing:
+            return
+        self._append("JARVIS", detail)
+        self.busy = False
+        self.send_button.configure(state="normal")
+        self.status.set("Action: launch request accepted" if success else "Action: not completed")
+        self.entry.focus_set()
 
     def _finish_response(self, response: str) -> None:
         if self.closing:
@@ -108,4 +137,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-"
