@@ -78,3 +78,12 @@ Every new study gets: name, canonical URL/source, date checked, license, mechani
 - **Research ledger scope:** this file remains a compact index, not the full verbatim original ledger or a complete archive of all research artifacts. Individual study URLs, licensing details, exact evidence and original source files still need to be imported study-by-study before those entries can be considered fully audited.
 
 - **Provider failure loop:** commit `aa42f1db9f096357c390ac5709222298b6edaeff` creates a bounded diagnosis proposal when the GUI receives a provider-failure response. The Actions unit-test job passed in run [39432373560](https://github.com/IaMNOo0B/Jarvis-v3/actions/runs/39432373560). This is a proposal, not an automatic repair or proof of a live provider failure.
+
+
+## Additional V3 implementation receipt — public research and task planning
+
+- **Deterministic task planner:** `jarvis/task_planner.py` now classifies supported app-launch and explicit research requests into bounded steps. Unknown requests remain chat; the planner is not an unrestricted command executor.
+- **Foreground public research:** `jarvis/research.py` queries fixed HTTPS endpoints for Wikipedia search and GitHub repository metadata, caps results and response bytes, uses timeouts, rejects obvious secret-bearing query strings, preserves source URLs and reports limitations. It does not fetch arbitrary URLs, run repository code, ingest every page, or claim independent fact verification.
+- **GUI connection:** explicit requests such as `research Wikipedia artificial intelligence` and `research GitHub agent framework` run in a worker thread, show source URLs/snippets, and create evidence-labelled interaction history. External requests are only made for these explicit research phrases; normal chat does not silently send every message to the web.
+- **Tests added:** `tests/test_research.py` and `tests/test_task_planner.py` cover query validation, URL provenance, source errors and safe intent classification. GitHub Actions run 95 was queued/in progress during this update; its final conclusion must be checked before calling these latest changes verified.
+- **Remaining research-ledger requirement:** the original supplied ledger still has not been imported verbatim item-by-item. This index and receipts are not a substitute for importing the complete source list and reviewing each study. No old [BUILT] tag is promoted to a verified V3 feature merely because a similar idea has a new module.
