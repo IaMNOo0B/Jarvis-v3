@@ -14,6 +14,7 @@ import sqlite3
 OUTCOMES = {
     "response_generated",
     "action_accepted",
+    "action_verified",
     "action_failed",
     "action_partial",
     "action_unknown",
