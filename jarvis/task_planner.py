@@ -48,22 +48,49 @@ class TaskPlanner:
             ("research wikipedia ", "research_wikipedia", "wikipedia"),
             ("wiki research ", "research_wikipedia", "wikipedia"),
             ("wikipedia par research ", "research_wikipedia", "wikipedia"),
+            ("look up on wikipedia ", "research_wikipedia", "wikipedia"),
+            ("find on wikipedia ", "research_wikipedia", "wikipedia"),
             ("research github ", "research_github", "github"),
             ("github research ", "research_github", "github"),
             ("github par research ", "research_github", "github"),
+            ("look up on github ", "research_github", "github"),
+            ("find on github ", "research_github", "github"),
         )
         for prefix, intent, source in prefixes:
             if lowered.startswith(prefix):
                 query = text[len(prefix):].strip()
                 if not query:
                     return TaskPlan(text, "invalid_research", (), ("Add a topic after the research source.",))
-                return TaskPlan(
-                    text, intent,
-                    (
-                        PlanStep("fetch", f"Query {source.title()}'s fixed public search API.", False, intent),
-                        PlanStep("cite", "Show source URLs, bounded snippets and evidence limitations.", False),
-                    ),
-                )
+                return TaskPlan(text, intent, (
+                    PlanStep("fetch", f"Query {source.title()}'s fixed public search API.", False, intent),
+                    PlanStep("cite", "Show source URLs, bounded snippets and evidence limitations.", False),
+                ))
+
+        # Common lookup phrasing works without a special research command.
+        generic_lookup_prefixes = (
+            "research ", "look up ", "search for ", "find information about ",
+            "find out about ", "tell me about ", "can you research ",
+            "can you find information about ", "please research ",
+            "please look up ", "please search for ",
+        )
+        for prefix in generic_lookup_prefixes:
+            if lowered.startswith(prefix):
+                query = text[len(prefix):].strip()
+                if query.casefold().startswith("on wikipedia "):
+                    query = query[len("on wikipedia "):].strip()
+                if query.casefold().startswith("on github "):
+                    query = query[len("on github "):].strip()
+                    if query:
+                        return TaskPlan(text, "research_github", (
+                            PlanStep("fetch", "Query GitHub's fixed public repository API.", False, "research_github"),
+                            PlanStep("cite", "Show repository metadata, URLs and evidence limitations.", False),
+                        ))
+                if not query:
+                    return TaskPlan(text, "invalid_research", (), ("Add a topic to look up.",))
+                return TaskPlan(text, "research_wikipedia", (
+                    PlanStep("fetch", "Query Wikipedia's fixed public search API.", False, "research_wikipedia"),
+                    PlanStep("cite", "Show source URLs, bounded snippets and evidence limitations.", False),
+                ))
         return TaskPlan(
             text, "chat",
             (PlanStep("answer", "Use the configured AI provider and relevant local reference material.", False),),
