@@ -1,4 +1,4 @@
-""""Explicit provider construction without implicit network or secret fallbacks."""
+"""Explicit provider construction without implicit network or secret fallbacks."""
 
 from dataclasses import dataclass
 
@@ -36,4 +36,3 @@ def build_provider(config: ProviderConfig | None = None, *, credentials: Credent
     if name == "openrouter":
         raise NotImplementedError("OpenRouter is not implemented yet; no request was sent.")
     raise ValueError("Unsupported provider. Available providers: ollama, gemini.")
-"
