@@ -15,6 +15,7 @@ OUTCOMES = {
     "response_generated",
     "action_accepted",
     "action_failed",
+    "action_partial",
     "action_unknown",
     "provider_failed",
     "research_succeeded",
@@ -84,7 +85,7 @@ class TaskReceiptStore:
 
     def record_step(self, task: str, step: str, outcome: str, *, evidence: str = "") -> dict:
         """Persist one bounded execution step without implying goal completion."""
-        allowed = {"started", "verified", "attempted", "failed", "blocked", "cancelled", "unknown"}
+        allowed = {"started", "verified", "attempted", "failed", "partial", "blocked", "cancelled", "unknown"}
         if not isinstance(task, str) or not task.strip() or len(task) > 4000:
             raise ValueError("Task must contain 1–4000 characters.")
         if not isinstance(step, str) or not step.strip() or len(step) > 200:
