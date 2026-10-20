@@ -37,6 +37,12 @@ class TaskReceiptStoreTests(unittest.TestCase):
         self.assertIn("visibility unverified", item["evidence"])
         self.assertEqual(self.store.recent_steps()[0], item)
 
+    def test_records_partial_task_and_skipped_step_outcomes(self):
+        task = self.store.record("Open several apps", "action_partial", evidence="One launch accepted; later launch failed.")
+        step = self.store.record_step("Open several apps", "Paint launch", "skipped", evidence="Skipped after Calculator failed.")
+        self.assertEqual(task["outcome"], "action_partial")
+        self.assertEqual(step["outcome"], "skipped")
+
     def test_step_receipts_validate_status(self):
         with self.assertRaises(ValueError):
             self.store.record_step("task", "step", "success")
