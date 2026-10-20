@@ -62,7 +62,7 @@ _CAPABILITIES_FOR_INTENT = {
     "launch_allowlisted_apps": ("launch_app",),
     "research_wikipedia": ("research_wikipedia",),
     "research_github": ("research_github",),
-    "notepad_type_text": ("launch_app", "type_notepad_text"),
+    "notepad_type_text": ("preflight_notepad_uia", "launch_app", "type_notepad_text"),
 }
 _CONTINUE_STATUSES = {"verified", "attempted"}
 
@@ -119,9 +119,10 @@ def execute_plan(
     elif is_notepad_sequence:
         if (
             tuple(step.action for step in action_steps) != expected
-            or action_steps[0].target != "notepad"
-            or action_steps[1].target != "blank document"
-            or not is_supported_notepad_text(action_steps[1].input_text)
+            or action_steps[0].target is not None
+            or action_steps[1].target != "notepad"
+            or action_steps[2].target != "blank document"
+            or not is_supported_notepad_text(action_steps[2].input_text)
         ):
             return RuntimeResult(plan.intent, "blocked", "The Notepad plan is malformed; no action was run.")
     elif tuple(step.action for step in action_steps) != expected:
@@ -177,7 +178,11 @@ def execute_plan(
                     "Skipped because an earlier step did not complete.",
                     "none", remaining.target,
                 ))
-            earlier_steps_ran = any(item.status in _CONTINUE_STATUSES for item in outcomes[:-1])
+            side_effecting_capabilities = {"launch_app", "open_url", "type_notepad_text"}
+            earlier_steps_ran = any(
+                prior.status in _CONTINUE_STATUSES and prior_step.action in side_effecting_capabilities
+                for prior_step, prior in zip(action_steps[:index], outcomes[:-1])
+            )
             if len(action_steps) > 1 and earlier_steps_ran:
                 if is_batch:
                     accepted = sum(item.status in _CONTINUE_STATUSES for item in outcomes[:-1])
