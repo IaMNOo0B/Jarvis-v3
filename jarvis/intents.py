@@ -11,10 +11,11 @@ class Intent:
 
 _HELP = {"help", "/help", "commands", "/commands"}
 _EXIT = {"exit", "quit", "/exit", "/quit"}
+_ACTION_STARTS = ("open ", "launch ", "start ", "close ", "click ", "type ", "press ", "shutdown ", "restart ")
 
 
 def parse_intent(text: str) -> Intent:
-    """Parse only safe, known intents; leave everything else as ordinary chat."""
+    """Route known commands and obvious action requests before ordinary chat."""
     normalized = text.strip()
     lowered = normalized.casefold()
     if not normalized:
@@ -23,6 +24,6 @@ def parse_intent(text: str) -> Intent:
         return Intent("help")
     if lowered in _EXIT:
         return Intent("exit")
-    if lowered.startswith("/ "):
-        return Intent("chat", normalized)
+    if lowered.startswith(_ACTION_STARTS):
+        return Intent("action_unavailable", normalized)
     return Intent("chat", normalized)
