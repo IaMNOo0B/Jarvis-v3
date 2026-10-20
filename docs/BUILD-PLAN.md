@@ -91,9 +91,9 @@ This is a target layout, not a claim that these components already exist. Introd
 ## Verification rules
 
 1. Inspect the changed code and diff.
-2. Run the complete relevant test suite after the final code change, on a clean/stable tree.
+2. Run the complete relevant test suite after the final code change, on a clean/stable tree; CI currently runs it on Ubuntu and Windows.
 3. Record exact commands, environment, counts, and failures. Do not invent local execution evidence when only CI ran.
-4. Separate unit-test evidence from live provider, Windows desktop, microphone, and packaging evidence.
+4. Separate unit-test evidence from live provider, interactive Windows desktop, microphone, and packaging evidence; a hosted Windows runner is not proof of target-PC UI automation.
 5. Scan repository artifacts for credentials and accidental user data.
 6. Keep each unresolved risk open until there is direct evidence it is closed.
 
