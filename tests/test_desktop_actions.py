@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import patch
 
-from jarvis.desktop_actions import (launch_allowlisted_app, launch_app_with_approval, parse_app_launch_request, parse_notepad_type_request, parse_explicit_url_request, validate_http_url, open_url_in_browser, open_url_with_approval)
+from jarvis.desktop_actions import (launch_allowlisted_app, launch_app_with_approval, parse_app_launch_request, parse_notepad_type_request, parse_explicit_url_request, validate_http_url, open_url_in_browser, open_url_with_approval, is_supported_notepad_text)
 
 
 class DesktopLaunchTests(unittest.TestCase):
@@ -98,7 +98,13 @@ class DesktopLaunchTests(unittest.TestCase):
     def test_notepad_text_parser_fails_closed_on_empty_ambiguous_or_oversized_text(self):
         self.assertIsNone(parse_notepad_type_request("open Notepad and type"))
         self.assertIsNone(parse_notepad_type_request("open Notepad and type " + "x" * 2001))
+        self.assertIsNone(parse_notepad_type_request("open Notepad and type " + "😀" * 1100))
         self.assertIsNone(parse_notepad_type_request("open Notepad and type hello then open Chrome"))
+
+    def test_notepad_text_limit_uses_utf16_code_units(self):
+        self.assertTrue(is_supported_notepad_text("😀" * 1000))
+        self.assertFalse(is_supported_notepad_text("😀" * 1001))
+        self.assertFalse(is_supported_notepad_text("  "))
 
     def test_extra_words_do_not_trigger_launch(self):
         for phrase in (
