@@ -96,3 +96,36 @@ class TaskPlanner:
             (PlanStep("answer", "Use the configured AI provider and relevant local reference material.", False),),
             ("No unsupported desktop or external action will be inferred from an ordinary chat request.",),
         )
+
+def extract_research_query(request: str, intent: str) -> str:
+    """Extract only the topic text for an already-classified public lookup."""
+    text = request.strip()
+    lowered = text.casefold()
+    prefixes = {
+        "research_wikipedia": (
+            "research wikipedia ", "wiki research ", "wikipedia par research ",
+            "look up on wikipedia ", "find on wikipedia ", "research ",
+            "look up ", "search for ", "find information about ", "find out about ",
+            "tell me about ", "can you research ", "can you find information about ",
+            "please research ", "please look up ", "please search for ",
+        ),
+        "research_github": (
+            "research github ", "github research ", "github par research ",
+            "look up on github ", "find on github ",
+        ),
+    }
+    for prefix in prefixes.get(intent, ()):
+        if lowered.startswith(prefix):
+            query = text[len(prefix):].strip()
+            if intent == "research_wikipedia" and query.casefold().startswith("on wikipedia "):
+                query = query[len("on wikipedia "):].strip()
+            if intent == "research_github" and query.casefold().startswith("on github "):
+                query = query[len("on github "):].strip()
+            return query
+    if intent == "research_github":
+        for prefix in ("search for ", "find information about ", "look up ", "research "):
+            if lowered.startswith(prefix):
+                query = text[len(prefix):].strip()
+                if query.casefold().startswith("github "):
+                    return query[len("github "):].strip()
+    return ""
