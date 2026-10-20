@@ -19,6 +19,7 @@ from jarvis.research import PublicResearch, ResearchError, ResearchReport
 from jarvis.research_archive import ResearchArchive
 from jarvis.activity import ActivityJournal
 from jarvis.task_receipts import TaskReceiptStore
+from jarvis.cancellation import CancellationToken, OperationCancelled
 
 from jarvis.chat_service import ChatService
 from jarvis.knowledge_base import KnowledgeBase
@@ -39,6 +40,7 @@ class JarvisWindow:
         self.service = self._make_service(self.provider)
         self.busy = False
         self.closing = False
+        self.current_cancellation: CancellationToken | None = None
         self._events: queue.Queue[tuple[str, object]] = queue.Queue()
         self.reminders = ReminderStore()
         self.memory = MemoryStore()
@@ -79,8 +81,11 @@ class JarvisWindow:
         self.entry = ttk.Entry(compose)
         self.entry.pack(side="left", fill="x", expand=True, padx=(0, 8))
         self.entry.bind("<Return>", self.send)
+        self.stop_button = ttk.Button(compose, text="Stop", command=self.stop_current, state="disabled")
+        self.stop_button.pack(side="right", padx=(0, 6))
         self.send_button = ttk.Button(compose, text="Send", command=self.send)
         self.send_button.pack(side="right")
+        self.root.bind("<Escape>", self._escape_stop)
         ttk.Label(shell, text="Notepad/Chrome launch requires confirmation. No microphone is active.").pack(anchor="w", pady=(8, 0))
         self._append("JARVIS", "Ready. Ask a question or use /help. Try “open Notepad” or “Notepad kholo” to request an approved app launch.")
         self.entry.focus_set()
@@ -101,6 +106,33 @@ class JarvisWindow:
             # Activity logging must never block the requested user operation.
             pass
 
+    def _begin_work(self) -> CancellationToken:
+        token = CancellationToken()
+        self.current_cancellation = token
+        self.busy = True
+        self.send_button.configure(state="disabled")
+        self.stop_button.configure(state="normal")
+        return token
+
+    def _finish_work_controls(self) -> None:
+        self.busy = False
+        self.current_cancellation = None
+        self.send_button.configure(state="normal")
+        self.stop_button.configure(state="disabled")
+        self.entry.focus_set()
+
+    def stop_current(self) -> None:
+        token = self.current_cancellation
+        if token is None or token.cancelled:
+            return
+        token.cancel()
+        self.stop_button.configure(state="disabled")
+        self.status.set("Stop requested; an in-flight provider/network call may continue until its timeout. Its result will be discarded.")
+        self._record_activity("task_cancel", "requested")
+
+    def _escape_stop(self, event=None) -> None:
+        self.stop_current()
+
     def _post_event(self, kind: str, payload: object) -> None:
         # Worker threads only write to a thread-safe queue. Tk calls stay on the UI thread.
         self._events.put((kind, payload))
@@ -113,7 +145,13 @@ class JarvisWindow:
                 kind, payload = self._events.get_nowait()
             except queue.Empty:
                 break
-            if kind == "response":
+            if kind == "cancelled":
+                task = str(payload)
+                self._append("JARVIS", f"Stopped task: {task}. An in-flight call may have continued until timeout; its result was discarded.")
+                self._record_activity("task_cancel", "observed_at_safe_boundary")
+                self.status.set("Task cancelled at a safe boundary.")
+                self._finish_work_controls()
+            elif kind == "response":
                 task, response = payload
                 self._finish_response(str(task), str(response))
             elif kind == "action":
@@ -456,12 +494,12 @@ class JarvisWindow:
             prefix = next(p for p in prefix_map[plan.intent] if lowered.startswith(p))
             query = message.strip()[len(prefix):].strip()
             source = "wikipedia" if plan.intent == "research_wikipedia" else "github"
-            self.busy = True
-            self.send_button.configure(state="disabled")
+            token = self._begin_work()
             self.status.set(f"Research: searching public {source.title()} metadata…")
 
             def research_work():
                 try:
+                    token.raise_if_cancelled()
                     runtime = execute_plan(
                         plan,
                         registry=self.capability_registry,
@@ -471,6 +509,7 @@ class JarvisWindow:
                     if runtime.status != "verified" or outcome is None or not isinstance(outcome.value, ResearchReport):
                         raise ResearchError("Registered research capability did not return a usable report.")
                     report = outcome.value
+                    token.raise_if_cancelled()
                     try:
                         run_id = self.research_archive.save(report)
                         self._record_activity("research_archive", "saved", f"run_id={run_id}")
@@ -488,10 +527,18 @@ class JarvisWindow:
                         lines.append("Limitations:")
                         lines.extend(f"- {warning}" for warning in report.warnings)
                     self._post_event("research", (True, "\n".join(lines), message))
+                except OperationCancelled:
+                    self._post_event("cancelled", message)
                 except (ResearchError, ValueError):
-                    self._post_event("research", (False, "Public research failed or was unavailable. No result was fabricated.", message))
+                    if token.cancelled:
+                        self._post_event("cancelled", message)
+                    else:
+                        self._post_event("research", (False, "Public research failed or was unavailable. No result was fabricated.", message))
                 except Exception:
-                    self._post_event("research", (False, "Unexpected research error. No result was fabricated.", message))
+                    if token.cancelled:
+                        self._post_event("cancelled", message)
+                    else:
+                        self._post_event("research", (False, "Unexpected research error. No result was fabricated.", message))
 
             threading.Thread(target=research_work, daemon=True).start()
             return
@@ -506,12 +553,12 @@ class JarvisWindow:
             if not approved:
                 self._append("JARVIS", "Cancelled. No app was launched.")
                 return
-            self.busy = True
-            self.send_button.configure(state="disabled")
+            token = self._begin_work()
             self.status.set(f"Action: launching {app_name.title()}…")
 
             def launch():
                 try:
+                    token.raise_if_cancelled()
                     runtime = execute_plan(
                         plan,
                         registry=self.capability_registry,
@@ -519,10 +566,15 @@ class JarvisWindow:
                         approved=True,
                     )
                     outcome = runtime.capability_result
-                    if runtime.status != "attempted" or outcome is None:
+                    if token.cancelled:
+                        event = (False, "Cancellation arrived during app launch. The app may have opened; check the desktop before retrying.")
+                    elif runtime.status != "attempted" or outcome is None:
                         event = (False, runtime.detail)
                     else:
                         event = (True, outcome.detail)
+                except OperationCancelled:
+                    self._post_event("cancelled", message)
+                    return
                 except Exception:
                     event = (False, "Unexpected launch error. No further action was taken.")
                 self._post_event("action", (event[0], event[1], message))
@@ -624,23 +676,35 @@ class JarvisWindow:
         if self.busy or self.closing:
             self.status.set("AI status: busy; wait for the current request")
             return
-        self.busy = True
-        self.send_button.configure(state="disabled")
+        token = self._begin_work()
         self.status.set("AI status: testing with a real generation request…")
         provider = self.provider
 
         def work():
             try:
+                token.raise_if_cancelled()
                 result = check_provider(provider, timeout_seconds=15.0)
+                token.raise_if_cancelled()
                 payload = (result.healthy, result.detail)
+            except OperationCancelled:
+                self._post_event("cancelled", "provider health check")
+                return
             except Exception:
+                if token.cancelled:
+                    self._post_event("cancelled", "provider health check")
+                    return
                 payload = (False, "Provider health check failed unexpectedly.")
+            if token.cancelled:
+                self._post_event("cancelled", "provider health check")
+                return
             self._post_event("health", payload)
 
         threading.Thread(target=work, daemon=True).start()
 
     def close(self) -> None:
         self.closing = True
+        if self.current_cancellation is not None:
+            self.current_cancellation.cancel()
         self.root.destroy()
 
 
