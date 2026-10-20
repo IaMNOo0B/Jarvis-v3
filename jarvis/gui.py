@@ -8,7 +8,7 @@ from tkinter import messagebox, scrolledtext, simpledialog, ttk
 from datetime import datetime, timezone
 
 from jarvis.reminders import ReminderStore, parse_natural_reminder
-from jarvis.memory import MemoryStore
+from jarvis.memory import MemoryStore, is_sensitive_memory_request, parse_natural_remember_request
 from jarvis.learning import LearningStore
 from jarvis.auto_learning import AutomaticLearning
 from jarvis.self_healing import RepairLedger
@@ -252,6 +252,57 @@ class JarvisWindow:
     def _handle_memory_command(self, message: str) -> bool:
         stripped = message.strip()
         lowered = stripped.casefold()
+
+        natural_content = parse_natural_remember_request(stripped)
+        if natural_content is not None:
+            if is_sensitive_memory_request(natural_content):
+                self._append("JARVIS", "I won't save passwords, API keys, tokens, passcodes, or recovery codes as memory. No memory was created.")
+                return True
+            try:
+                item = self.memory.remember(natural_content, source="explicit_user_request")
+            except ValueError:
+                self._append("JARVIS", "Memory not saved. Keep it between 1 and 4000 characters.")
+                return True
+            self._record_activity("memory_save", "success", f"id={item.memory_id}")
+            self._append("JARVIS", f"Remembered: {item.content} (memory #{item.memory_id}). I only save a memory when you explicitly ask.")
+            return True
+
+        if lowered in {"what do you remember?", "what do you remember about me?", "show my memories", "what have you remembered?"}:
+            items = self.memory.list()
+            if not items:
+                self._append("JARVIS", "I have no saved memories.")
+            else:
+                lines = [f"#{item.memory_id} · {item.content} (source: {item.source})" for item in items]
+                self._append("JARVIS", "Saved memories:\n" + "\n".join(lines))
+            return True
+
+        if lowered in {"forget all my memories", "forget everything you remember about me", "delete all memories"}:
+            if not messagebox.askyesno("Forget all memories", "Permanently delete ALL saved JARVIS memories?", parent=self.root):
+                self._append("JARVIS", "Cancelled. Memories were kept.")
+            else:
+                count = self.memory.forget_all(confirmed=True)
+                self._record_activity("memory_forget_all", "success", f"count={count}")
+                self._append("JARVIS", f"Forgot {count} saved memories.")
+            return True
+
+        forget_prefix = "please forget that " if lowered.startswith("please forget that ") else "forget that " if lowered.startswith("forget that ") else None
+        if forget_prefix:
+            target = stripped[len(forget_prefix):].strip().casefold()
+            matches = [item for item in self.memory.list() if target and target in item.content.casefold()]
+            if len(matches) == 1:
+                item = matches[0]
+                if messagebox.askyesno("Forget memory", f"Permanently delete memory #{item.memory_id}: {item.content}?", parent=self.root):
+                    self.memory.forget(item.memory_id)
+                    self._record_activity("memory_forget", "success", f"id={item.memory_id}")
+                    self._append("JARVIS", f"Forgot memory #{item.memory_id}.")
+                else:
+                    self._append("JARVIS", "Cancelled. Memory was kept.")
+            elif len(matches) > 1:
+                self._append("JARVIS", "More than one memory matches. No data was deleted:\n" + "\n".join(f"#{item.memory_id} · {item.content}" for item in matches) + "\nPlease identify the memory number.")
+            else:
+                self._append("JARVIS", "No saved memory matched that wording; nothing was deleted.")
+            return True
+
         if lowered.startswith("/remember "):
             content = stripped[len("/remember "):].strip()
             try:
@@ -270,8 +321,8 @@ class JarvisWindow:
                 lines = [f"#{item.memory_id} · {item.content} (source: {item.source})" for item in items]
                 self._append("JARVIS", "Saved memories:\n" + "\n".join(lines))
             return True
-        if lowered.startswith("/forget "):
-            raw_id = stripped.split(maxsplit=1)[1]
+        if lowered.startswith("/forget ") or lowered.startswith("forget memory "):
+            raw_id = stripped.split()[-1]
             if not raw_id.isdigit():
                 self._append("JARVIS", "Usage: /forget ID")
                 return True
