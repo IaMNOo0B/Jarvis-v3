@@ -5,9 +5,17 @@ on:
     branches: [main, 'docs/**', 'feat/**']
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
-  unittest:
-    runs-on: ubuntu-latest
+  unit-tests:
+    name: Unit tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -17,5 +25,18 @@ jobs:
         run: python -m compileall -q jarvis tests scripts
       - name: Compile GUI launcher
         run: python -m py_compile Start_JARVIS.pyw
+      - name: Parse PowerShell UI Automation helper
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: |
+          $scriptPath = Join-Path $env:GITHUB_WORKSPACE "scripts/jarvis_notepad_uia.ps1"
+          $parseTokens = $null
+          $parseErrors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile($scriptPath, [ref]$parseTokens, [ref]$parseErrors) | Out-Null
+          if ($parseErrors.Count -gt 0) {
+            $parseErrors | ForEach-Object { Write-Error $_.Message }
+            exit 1
+          }
+          Write-Host "PowerShell helper syntax OK"
       - name: Run standard-library test suite
         run: python -m unittest discover -s tests -v
