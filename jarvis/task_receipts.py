@@ -9,6 +9,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 import re
 import sqlite3
+from typing import ContextManager
+
+from jarvis.sqlite_utils import sqlite_connection
 
 
 OUTCOMES = {
@@ -59,10 +62,8 @@ class TaskReceiptStore:
                 created_at TEXT NOT NULL
             )""")
 
-    def _connect(self) -> sqlite3.Connection:
-        db = sqlite3.connect(self.database_path)
-        db.row_factory = sqlite3.Row
-        return db
+    def _connect(self) -> ContextManager[sqlite3.Connection]:
+        return sqlite_connection(self.database_path, timeout=5.0)
 
     def record(self, task: str, outcome: str, *, evidence: str = "") -> dict:
         if not isinstance(task, str) or not task.strip() or len(task) > 4000:
