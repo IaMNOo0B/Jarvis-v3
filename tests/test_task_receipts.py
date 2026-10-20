@@ -13,6 +13,14 @@ class TaskReceiptStoreTests(unittest.TestCase):
     def tearDown(self):
         self.temp.cleanup()
 
+    def test_records_postcondition_verified_action(self):
+        item = self.store.record(
+            "Type text in Notepad", "action_verified",
+            evidence="Notepad read-back exactly matched the requested text.",
+        )
+        self.assertEqual(item["outcome"], "action_verified")
+        self.assertIn("exactly matched", item["evidence"])
+
     def test_records_observed_outcome_and_evidence(self):
         item = self.store.record("Open Notepad", "action_accepted", evidence="OS accepted request")
         self.assertEqual(item["outcome"], "action_accepted")
