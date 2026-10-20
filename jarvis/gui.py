@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 
 from jarvis.reminders import ReminderStore
 from jarvis.memory import MemoryStore
+from jarvis.learning import LearningStore
 from jarvis.activity import ActivityJournal
 
 from jarvis.chat_service import ChatService
@@ -31,6 +32,7 @@ class JarvisWindow:
         self._events: queue.Queue[tuple[str, object]] = queue.Queue()
         self.reminders = ReminderStore()
         self.memory = MemoryStore()
+        self.learning = LearningStore()
         self.activity = ActivityJournal()
         self._notified_reminders: set[int] = set()
 
@@ -206,6 +208,74 @@ class JarvisWindow:
             return True
         return False
 
+    def _handle_learning_command(self, message: str) -> bool:
+        stripped = message.strip()
+        lowered = stripped.casefold()
+        if lowered.startswith("/experience "):
+            payload = stripped[len("/experience "):]
+            parts = [part.strip() for part in payload.split("|", 2)]
+            if len(parts) < 2:
+                self._append("JARVIS", "Usage: /experience task | outcome | optional evidence")
+                return True
+            try:
+                episode = self.learning.record_episode(parts[0], parts[1], evidence=parts[2] if len(parts) == 3 else "")
+            except ValueError:
+                self._append("JARVIS", "Experience not saved. Check task, outcome, and evidence lengths.")
+                return True
+            self._record_activity("learning_episode", "saved", f"id={episode.episode_id}")
+            self._append("JARVIS", f"Recorded experience #{episode.episode_id}. This records an outcome; it does not prove the task succeeded beyond the evidence provided.")
+            return True
+        if lowered.startswith("/learn "):
+            payload = stripped[len("/learn "):]
+            if "|" not in payload:
+                self._append("JARVIS", "Usage: /learn exact trigger | reusable instructions")
+                return True
+            trigger, instructions = payload.split("|", 1)
+            try:
+                skill = self.learning.propose_skill(trigger, instructions)
+            except ValueError:
+                self._append("JARVIS", "Skill proposal not saved. Check that trigger and instructions are non-empty and within limits.")
+                return True
+            self._record_activity("skill_proposal", "pending", f"id={skill.skill_id}")
+            self._append("JARVIS", f"Saved skill proposal #{skill.skill_id} as PENDING. It will not run until you review and approve it with /approve-skill {skill.skill_id}.")
+            return True
+        if lowered == "/skills":
+            skills = self.learning.list_skills(limit=30)
+            if not skills:
+                self._append("JARVIS", "No learned skill proposals yet.")
+            else:
+                lines = [f"#{item.skill_id} [{item.status.upper()}] {item.trigger} — {item.instructions}" for item in skills]
+                self._append("JARVIS", "Skill proposals (text only; no code is auto-executed):\n" + "\n".join(lines))
+            return True
+        if lowered.startswith("/approve-skill ") or lowered.startswith("/reject-skill "):
+            approve = lowered.startswith("/approve-skill ")
+            raw_id = stripped.split(maxsplit=1)[1]
+            if not raw_id.isdigit():
+                self._append("JARVIS", "Usage: /approve-skill ID or /reject-skill ID")
+                return True
+            skill_id = int(raw_id)
+            if approve and not messagebox.askyesno("Approve learned skill", f"Approve skill proposal #{skill_id}? Review its trigger and instructions in /skills first. Approval stores the procedure; it does not grant desktop permissions.", parent=self.root):
+                self._append("JARVIS", "Cancelled. Skill remains unchanged.")
+                return True
+            try:
+                item = self.learning.review_skill(skill_id, approve=approve)
+            except ValueError as exc:
+                self._append("JARVIS", f"Could not review skill: {exc}")
+                return True
+            status = "approved" if approve else "rejected"
+            self._record_activity("skill_review", status, f"id={skill_id}")
+            self._append("JARVIS", f"Skill proposal #{skill_id} marked {status.upper()}. Learned procedures do not bypass action safety checks.")
+            return True
+        if lowered == "/experiences":
+            episodes = self.learning.recent_episodes(limit=20)
+            if not episodes:
+                self._append("JARVIS", "No recorded experiences yet.")
+            else:
+                lines = [f"#{item.episode_id} · {item.task} → {item.outcome}" + (f" (evidence: {item.evidence})" if item.evidence else "") for item in episodes]
+                self._append("JARVIS", "Recent experiences:\n" + "\n".join(lines))
+            return True
+        return False
+
     def _set_provider(self, name: str) -> None:
         credentials = CredentialStore() if name == "gemini" else None
         provider = build_provider(ProviderConfig(name=name), credentials=credentials)
@@ -274,6 +344,8 @@ class JarvisWindow:
         if self._handle_reminder_command(message):
             return
         if self._handle_memory_command(message):
+            return
+        if self._handle_learning_command(message):
             return
         app_name = parse_app_launch_request(message)
         if app_name:
