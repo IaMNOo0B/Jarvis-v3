@@ -162,8 +162,7 @@ class JarvisWindow:
                 label = "HEALTHY" if healthy else "NOT HEALTHY"
                 self._record_activity("provider_health", "healthy" if healthy else "unhealthy", detail)
                 self.status.set(f"AI status: {label} · {detail}")
-                self.busy = False
-                self.send_button.configure(state="normal")
+                self._finish_work_controls()
             elif kind == "research":
                 success, detail, task = payload
                 self._finish_research(bool(success), str(detail), str(task))
@@ -582,15 +581,25 @@ class JarvisWindow:
             threading.Thread(target=launch, daemon=True).start()
             return
 
-        self.busy = True
-        self.send_button.configure(state="disabled")
+        token = self._begin_work()
         self.status.set(f"AI status: generating with {self.provider_name}…")
 
         def work():
             try:
+                token.raise_if_cancelled()
                 response = self.service.respond(message, timeout_seconds=120.0)
+                token.raise_if_cancelled()
+            except OperationCancelled:
+                self._post_event("cancelled", message)
+                return
             except Exception:
+                if token.cancelled:
+                    self._post_event("cancelled", message)
+                    return
                 response = "An unexpected error occurred; no desktop action was performed."
+            if token.cancelled:
+                self._post_event("cancelled", message)
+                return
             # The UI event handler expects both the original task and its response.
             self._post_event("response", (message, response))
 
@@ -611,10 +620,8 @@ class JarvisWindow:
         except (ValueError, OSError):
             self._record_activity("automatic_reflection", "failed", "action result was not recorded")
         self._append("JARVIS", detail)
-        self.busy = False
-        self.send_button.configure(state="normal")
+        self._finish_work_controls()
         self.status.set("Action: launch request accepted" if success else "Action: not completed")
-        self.entry.focus_set()
 
     def _finish_response(self, task: str, response: str) -> None:
         if self.closing:
@@ -646,10 +653,8 @@ class JarvisWindow:
             except (ValueError, OSError):
                 self._record_activity("repair_proposal", "not_saved", "failure diagnosis proposal could not be stored")
         self._append("JARVIS", response)
-        self.busy = False
-        self.send_button.configure(state="normal")
+        self._finish_work_controls()
         self.status.set(f"AI status: response finished · {self.provider_name}")
-        self.entry.focus_set()
 
     def _finish_research(self, success: bool, detail: str, task: str) -> None:
         if self.closing:
@@ -667,10 +672,8 @@ class JarvisWindow:
             self._record_activity("automatic_reflection", "failed", "research outcome was not recorded")
         self._record_activity("public_research", "success" if success else "failed")
         self._append("JARVIS", detail)
-        self.busy = False
-        self.send_button.configure(state="normal")
+        self._finish_work_controls()
         self.status.set("Research: finished" if success else "Research: unavailable")
-        self.entry.focus_set()
 
     def check_status(self) -> None:
         if self.busy or self.closing:
