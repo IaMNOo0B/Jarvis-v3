@@ -226,8 +226,27 @@ class JarvisWindow:
             return True
         return False
 
+    def _handle_help_command(self, message: str) -> bool:
+        if message.strip().casefold() != "/help":
+            return False
+        self._append("JARVIS", "Supported features and commands:\\n- Normal messages: chat with the selected provider\\n- open Notepad / open Chrome: asks before launch\\n- research Wikipedia TOPIC / research GitHub TOPIC: explicit bounded public lookup\\n- /tasks: recent task receipts\\n- /clear-tasks: delete task receipts after confirmation\\n- /research-history: recent archived research\\n- /remind TIME | MESSAGE, /reminders, /cancel-reminder ID\\n- /remember TEXT, /memories, /forget ID, /forget-all\\n- /experiences, /skills, /learn TRIGGER | INSTRUCTIONS, /approve-skill ID, /reject-skill ID\\n- Check AI status: performs a real provider generation check\\nLimitations: only Notepad/Chrome launching is supported; research is not independent fact verification; voice, live UI Automation and background reminders are not implemented.")
+        return True
+
     def _handle_task_history_command(self, message: str) -> bool:
-        if message.strip().casefold() != "/tasks":
+        lowered = message.strip().casefold()
+        if lowered == "/clear-tasks":
+            if not messagebox.askyesno("Clear task history", "Permanently delete all saved task receipts? This does not delete memories or research history.", parent=self.root):
+                self._append("JARVIS", "Cancelled. Task receipts were kept.")
+                return True
+            try:
+                count = self.task_receipts.clear()
+            except (OSError, ValueError):
+                self._append("JARVIS", "Task history could not be cleared; no other data was changed.")
+                return True
+            self._record_activity("task_receipts_clear", "success", f"count={count}")
+            self._append("JARVIS", f"Deleted {count} task receipts. Memories and research history were not changed.")
+            return True
+        if lowered != "/tasks":
             return False
         try:
             items = self.task_receipts.recent(limit=10)
@@ -408,6 +427,8 @@ class JarvisWindow:
             return
         self.entry.delete(0, "end")
         self._append("Sir", message)
+        if self._handle_help_command(message):
+            return
         if self._handle_reminder_command(message):
             return
         if self._handle_memory_command(message):
