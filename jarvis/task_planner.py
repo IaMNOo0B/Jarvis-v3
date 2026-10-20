@@ -40,6 +40,7 @@ class TaskPlanner:
                 text, "notepad_type_text",
                 (
                     PlanStep("authorize", "Treat Sir's explicit request to enter this text in Notepad as one-request authorization.", False),
+                    PlanStep("preflight", "Check that the fixed Windows PowerShell UI Automation helper is available before opening Notepad.", False, "preflight_notepad_uia"),
                     PlanStep("execute", "Launch the allow-listed Notepad application.", True, "launch_app", "notepad"),
                     PlanStep(
                         "execute", "Type the requested text only into a detected blank Notepad document, then read it back.",
