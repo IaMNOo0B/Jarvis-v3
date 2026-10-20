@@ -16,6 +16,15 @@ class TaskRuntimeTests(unittest.TestCase):
             lambda args: self.calls.append(("launch", args)) or {"accepted": True},
             requires_approval=True,
         ))
+        self.type_calls = []
+        self.registry.register(Capability(
+            "type_notepad_text",
+            lambda args: self.type_calls.append(args) or TaskOutcome(
+                "type_notepad_text", "verified", "Notepad text exactly matches the requested text.",
+                "notepad_readback_exact_match",
+            ),
+            requires_approval=True,
+        ))
         self.registry.register(Capability(
             "research_wikipedia",
             lambda args: TaskOutcome("research_wikipedia", "verified", "Sources retrieved.", "test-source-url"),
@@ -38,6 +47,47 @@ class TaskRuntimeTests(unittest.TestCase):
         result = execute_plan(plan, registry=self.registry, arguments={"app": "notepad"}, approved=True)
         self.assertEqual(result.status, "attempted")
         self.assertEqual(len(self.calls), 1)
+
+    def test_notepad_typing_runs_launch_then_verified_text_entry(self):
+        plan = self.planner.plan("open Notepad and type Hello Sir")
+        result = execute_plan(plan, registry=self.registry, approved=True)
+        self.assertEqual(result.status, "verified")
+        self.assertEqual([call[1]["app"] for call in self.calls], ["notepad"])
+        self.assertEqual(self.type_calls, [{"target": "blank document", "text": "Hello Sir"}])
+        self.assertEqual([step.status for step in result.step_results], ["attempted", "verified"])
+        self.assertEqual(result.evidence, "notepad_readback_exact_match")
+
+    def test_notepad_typing_failure_after_launch_is_partial_not_success(self):
+        registry = CapabilityRegistry()
+        launch_calls = []
+        registry.register(Capability(
+            "launch_app",
+            lambda args: launch_calls.append(args["app"]) or {"accepted": True},
+            requires_approval=True,
+        ))
+        registry.register(Capability(
+            "type_notepad_text",
+            lambda args: TaskOutcome("type_notepad_text", "unknown", "Read-back failed; inspect Notepad."),
+            requires_approval=True,
+        ))
+        plan = self.planner.plan("open Notepad and type Hello Sir")
+        result = execute_plan(plan, registry=registry, approved=True)
+        self.assertEqual(result.status, "partial")
+        self.assertEqual(launch_calls, ["notepad"])
+        self.assertIn("check the desktop state before retrying", result.detail.casefold())
+
+    def test_missing_composite_capability_fails_before_launch(self):
+        registry = CapabilityRegistry()
+        calls = []
+        registry.register(Capability(
+            "launch_app", lambda args: calls.append(args) or {"accepted": True}, requires_approval=True,
+        ))
+        result = execute_plan(
+            self.planner.plan("open Notepad and type Hello Sir"),
+            registry=registry, approved=True,
+        )
+        self.assertEqual(result.status, "unavailable")
+        self.assertEqual(calls, [])
 
     def test_multi_app_plan_runs_registered_steps_in_order(self):
         plan = self.planner.plan("open Notepad and Calculator")
