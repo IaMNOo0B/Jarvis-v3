@@ -25,12 +25,12 @@ Evidence policy: a link or summary is not a code audit. Do not copy runtime code
 | Firecrawl | https://github.com/firecrawl/firecrawl | Web extraction/crawling | Not required for bounded first-party API search; evaluate license, privacy and cost before adoption | Not integrated |
 | Composio | https://github.com/ComposioHQ/composio | Third-party tool integrations | Requires connector scopes, egress policy and approval design | Not integrated |
 | n8n | https://github.com/n8n-io/n8n | Workflow automation | User's research ledger marks it rejected; do not reintroduce without explicit evidence-based review | Rejected in the supplied ledger; not integrated |
-| OpenGCUA | https://github.com/OpenGCUA/OpenGCUA | GUI automation patterns | Study only with threat-model and platform testing | Not integrated |
+| OpenGCUA | Exact canonical repository URL not verified in this pass | GUI automation patterns | Verify source identity before adoption; study only with threat-model and platform testing | Not integrated; source URL verification queued |
 | A-MEM | https://github.com/agiresearch/A-mem | Structured/associative memory ideas | Compare against simple SQLite memory with retrieval-quality tests | Not integrated |
 | Moshi | https://github.com/kyutai-labs/moshi | Full-duplex speech interaction | Hardware/latency study needed; do not make it a text-core dependency | Not integrated |
 | DeepEval | https://github.com/confident-ai/deepeval | LLM evaluation methods | Prefer deterministic stdlib golden tests first; review dependency before adoption | Not integrated |
-| Reverse Engineer Anything (REA) | https://github.com/elder-plinius/REA | Reverse-engineering workflow inspiration | Apply to authorized code only; report observed vs inferred vs unknown | No dedicated reverse-engineering module |
-| ClawHavoc / malicious skill research | https://github.com/ | Malicious skill and plugin supply-chain risk | Treat downloaded skills as untrusted; never auto-run; pin source and review permissions | Skill proposals are text-only; broader supply-chain scanner not implemented |
+| Reverse Engineer Anything (REA) | https://github.com/morluto/rea | Reverse-engineering workflow inspiration | Apply to authorized code only; report observed vs inferred vs unknown | No dedicated reverse-engineering module |
+| ClawHavoc / malicious skill research | https://github.com/joshdayorg/the-brain-problem | Malicious skill and plugin supply-chain risk | Treat downloaded skills as untrusted; never auto-run; pin source and review permissions | Skill proposals are text-only; broader supply-chain scanner not implemented |
 | GitHub public repository API | https://docs.github.com/en/rest/search/search#search-repositories | Discover public repositories with provenance | Use fixed public API, bounded results and source URLs | Implemented in `jarvis/research.py`; metadata search only |
 | Wikipedia OpenSearch API | https://www.mediawiki.org/wiki/API:Opensearch | Quick discovery of encyclopedia entries | Treat snippets as leads, not verified facts | Implemented in `jarvis/research.py`; search results only |
 
@@ -61,3 +61,8 @@ Evidence policy: a link or summary is not a code audit. Do not copy runtime code
 - **RESEARCH ONLY:** design/reference noted; no runtime integration.
 - **REJECTED:** intentionally not adopted unless the decision is revisited with new evidence.
 - **QUEUED:** not implemented yet.
+
+
+## Source verification note
+
+A targeted web lookup on 2026-10-20 found REA's official-source warning and points to `morluto/rea` / `rea.tools` / the `rea-agents` package; similar repository names may be forks, so the canonical source is used above. The same lookup surfaced a ClawHavoc security report at `joshdayorg/the-brain-problem`. OpenGCUA's exact canonical repository was not verified in this pass, so no guessed URL is treated as authoritative. These checks verify source identity only, not full code safety or licensing of every dependency.
