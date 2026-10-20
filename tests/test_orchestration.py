@@ -68,6 +68,24 @@ class OrchestrationTests(unittest.TestCase):
         ))
         self.assertEqual(run_capability("safe_read", {}, registry=registry).status, "invalid_result")
 
+    def test_unknown_handler_status_is_rejected(self):
+        registry = CapabilityRegistry()
+        registry.register(Capability(
+            "safe_read",
+            lambda _: TaskOutcome("safe_read", "magic_success", "Trust me.", "fake"),
+            requires_approval=False,
+        ))
+        self.assertEqual(run_capability("safe_read", {}, registry=registry).status, "invalid_result")
+
+    def test_verified_result_requires_string_evidence(self):
+        registry = CapabilityRegistry()
+        registry.register(Capability(
+            "safe_read",
+            lambda _: TaskOutcome("safe_read", "verified", "Looks good.", None),
+            requires_approval=False,
+        ))
+        self.assertEqual(run_capability("safe_read", {}, registry=registry).status, "invalid_result")
+
 
 if __name__ == "__main__":
     unittest.main()
