@@ -6,6 +6,9 @@ rewrite JARVIS, execute learned instructions, or treat observations as trusted p
 from __future__ import annotations
 
 import sqlite3
+from typing import ContextManager
+
+from jarvis.sqlite_utils import sqlite_connection
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -75,10 +78,8 @@ class LearningStore:
             )""")
             db.execute("CREATE INDEX IF NOT EXISTS skills_trigger_status ON skills(normalized_trigger,status)")
 
-    def _connect(self) -> sqlite3.Connection:
-        db = sqlite3.connect(self.database_path, timeout=5.0)
-        db.row_factory = sqlite3.Row
-        return db
+    def _connect(self) -> ContextManager[sqlite3.Connection]:
+        return sqlite_connection(self.database_path, timeout=5.0)
 
     @staticmethod
     def _now() -> str:
