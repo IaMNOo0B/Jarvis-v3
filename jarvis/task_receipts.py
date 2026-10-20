@@ -48,6 +48,14 @@ class TaskReceiptStore:
                 evidence TEXT NOT NULL,
                 created_at TEXT NOT NULL
             )""")
+            db.execute("""CREATE TABLE IF NOT EXISTS task_step_receipts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                task TEXT NOT NULL,
+                step TEXT NOT NULL,
+                outcome TEXT NOT NULL,
+                evidence TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            )""")
 
     def _connect(self) -> sqlite3.Connection:
         db = sqlite3.connect(self.database_path)
@@ -74,12 +82,44 @@ class TaskReceiptStore:
             row = db.execute("SELECT * FROM task_receipts WHERE id=?", (cursor.lastrowid,)).fetchone()
         return dict(row)
 
+    def record_step(self, task: str, step: str, outcome: str, *, evidence: str = "") -> dict:
+        """Persist one bounded execution step without implying goal completion."""
+        allowed = {"started", "verified", "attempted", "failed", "blocked", "cancelled", "unknown"}
+        if not isinstance(task, str) or not task.strip() or len(task) > 4000:
+            raise ValueError("Task must contain 1–4000 characters.")
+        if not isinstance(step, str) or not step.strip() or len(step) > 200:
+            raise ValueError("Step must contain 1–200 characters.")
+        if outcome not in allowed:
+            raise ValueError("Unsupported step outcome.")
+        if not isinstance(evidence, str) or len(evidence) > 4000:
+            raise ValueError("Evidence must be text up to 4000 characters.")
+        task = _redact(task.strip(), 1000)
+        step = _redact(step.strip(), 200)
+        evidence = _redact(evidence.strip(), 2000)
+        created_at = datetime.now(timezone.utc).isoformat()
+        with self._connect() as db:
+            cursor = db.execute(
+                "INSERT INTO task_step_receipts(task, step, outcome, evidence, created_at) VALUES (?, ?, ?, ?, ?)",
+                (task, step, outcome, evidence, created_at),
+            )
+            row = db.execute("SELECT * FROM task_step_receipts WHERE id=?", (cursor.lastrowid,)).fetchone()
+        return dict(row)
+
+    def recent_steps(self, limit: int = 20) -> list[dict]:
+        if not isinstance(limit, int) or not 1 <= limit <= 100:
+            raise ValueError("Limit must be between 1 and 100.")
+        with self._connect() as db:
+            rows = db.execute("SELECT * FROM task_step_receipts ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
+        return [dict(row) for row in rows]
+
     def clear(self) -> int:
-        """Delete task receipts only after the caller has obtained confirmation."""
+        """Delete task and step receipts only after the caller has obtained confirmation."""
         with self._connect() as db:
             count = db.execute("SELECT COUNT(*) FROM task_receipts").fetchone()[0]
+            step_count = db.execute("SELECT COUNT(*) FROM task_step_receipts").fetchone()[0]
             db.execute("DELETE FROM task_receipts")
-        return int(count)
+            db.execute("DELETE FROM task_step_receipts")
+        return int(count + step_count)
 
     def recent(self, limit: int = 10) -> list[dict]:
         if not isinstance(limit, int) or not 1 <= limit <= 100:
