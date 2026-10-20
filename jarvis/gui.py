@@ -270,7 +270,13 @@ class JarvisWindow:
         if not message:
             return
         self.entry.delete(0, "end")
-        self._append("Sir", message)\n        if self._handle_reminder_command(message):\n            return\n        app_name = parse_app_launch_request(message)\n        if app_name:
+        self._append("Sir", message)
+        if self._handle_reminder_command(message):
+            return
+        if self._handle_memory_command(message):
+            return
+        app_name = parse_app_launch_request(message)
+        if app_name:
             approved = messagebox.askyesno(
                 "Approve app launch",
                 f"Allow JARVIS to launch {app_name.title()} on this PC?",
