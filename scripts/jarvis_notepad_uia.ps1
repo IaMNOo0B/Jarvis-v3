@@ -133,7 +133,15 @@ public static class JarvisNativeInput
 
     $editors = @(Get-NotepadEditors)
     if ($action -eq "target_exists") {
+        # Notepad may still be starting after the preceding launch step. Wait only
+        # within this bounded lookup; never type if a blank document is not found.
         $blank = @($editors | Where-Object { $_.Text.Length -eq 0 } | Select-Object -First 1)
+        $deadline = [DateTime]::UtcNow.AddSeconds(4)
+        while ($blank.Count -eq 0 -and [DateTime]::UtcNow -lt $deadline) {
+            Start-Sleep -Milliseconds 250
+            $editors = @(Get-NotepadEditors)
+            $blank = @($editors | Where-Object { $_.Text.Length -eq 0 } | Select-Object -First 1)
+        }
         $ok = $blank.Count -gt 0
         $detail = if ($ok) { "A blank Notepad document was found." } else { "No blank Notepad document was found; existing text was left untouched." }
     }
