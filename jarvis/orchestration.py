@@ -65,13 +65,20 @@ def run_capability(
     try:
         if cancellation is not None:
             cancellation.raise_if_cancelled()
-        result = capability.handler(dict(arguments))
-        if cancellation is not None:
-            cancellation.raise_if_cancelled()
     except OperationCancelled:
-        return TaskOutcome(capability.name, "cancelled", "Task cancelled at a safe boundary.")
+        return TaskOutcome(capability.name, "cancelled", "Task was cancelled before the capability started.")
+    try:
+        result = capability.handler(dict(arguments))
     except Exception:
         return TaskOutcome(capability.name, "failed", "Capability failed; internal details were withheld.")
+    # If cancellation arrived during/after a side effect, the outcome is ambiguous.
+    # Never report it as safely cancelled or invite a blind retry.
+    if cancellation is not None and cancellation.cancelled:
+        return TaskOutcome(
+            capability.name,
+            "unknown",
+            "Cancellation arrived after execution began; the side effect may have occurred. Verify state before retrying.",
+        )
     if isinstance(result, TaskOutcome):
         if not isinstance(result.capability, str) or result.capability.casefold() != capability.name.casefold():
             return TaskOutcome(capability.name, "invalid_result", "Handler returned mismatched capability evidence.")
