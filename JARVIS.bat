@@ -60,14 +60,20 @@ if not exist ".venv\Scripts\python.exe" (
 )
 ".venv\Scripts\python.exe" -c "import tkinter, sqlite3" >nul 2>&1
 if errorlevel 1 (
-  echo Environment check failed. Choose option 2 to repair it.
+  echo Environment check failed. Choose option 2 to diagnose or repair it.
+  goto pausemenu
+)
+if not exist "Start_JARVIS.pyw" (
+  echo ERROR: Start_JARVIS.pyw is missing from this folder.
+  echo Re-clone or restore the repository files; user data was not changed.
+  goto pausemenu
+)
+if not exist ".venv\Scripts\pythonw.exe" (
+  echo ERROR: The windowed Python launcher is missing from .venv.
+  echo Choose option 2 to diagnose the Python environment.
   goto pausemenu
 )
 start "" ".venv\Scripts\pythonw.exe" "Start_JARVIS.pyw"
-if errorlevel 1 (
-  echo ERROR: JARVIS could not be launched.
-  goto pausemenu
-)
 goto end
 
 :update
