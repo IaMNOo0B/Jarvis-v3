@@ -134,7 +134,8 @@ public static class JarvisNativeInput
                 try {
                     $processName = (Get-Process -Id $window.Current.ProcessId -ErrorAction Stop).ProcessName
                 } catch { }
-                if (($title -notmatch "(?i)notepad") -and ($processName -ne "notepad")) {
+                # Match the real Notepad process, not a look-alike window title.
+                if ($processName -ne "notepad") {
                     continue
                 }
                 $editors = $window.FindAll([System.Windows.Automation.TreeScope]::Descendants, $editorCondition)
