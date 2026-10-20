@@ -22,7 +22,7 @@ class DesktopLaunchTests(unittest.TestCase):
         for phrase in (
             "open notepad and type hello",
             "open powershell",
-            "please open chrome",
+            "kindly open chrome",
             "close chrome",
             "notepad kholo abhi",
         ):
