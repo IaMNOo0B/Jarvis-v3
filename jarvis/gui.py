@@ -86,7 +86,7 @@ class JarvisWindow:
         self.send_button = ttk.Button(compose, text="Send", command=self.send)
         self.send_button.pack(side="right")
         self.root.bind("<Escape>", self._escape_stop)
-        ttk.Label(shell, text="Notepad/Chrome launch requires confirmation. No microphone is active.").pack(anchor="w", pady=(8, 0))
+        ttk.Label(shell, text="Stop / Esc cancels at safe boundaries. Notepad/Chrome launch requires confirmation. No microphone is active.").pack(anchor="w", pady=(8, 0))
         self._append("JARVIS", "Ready. Ask a question or use /help. Try “open Notepad” or “Notepad kholo” to request an approved app launch.")
         self.entry.focus_set()
         self.root.protocol("WM_DELETE_WINDOW", self.close)
@@ -269,7 +269,7 @@ class JarvisWindow:
     def _handle_help_command(self, message: str) -> bool:
         if message.strip().casefold() != "/help":
             return False
-        self._append("JARVIS", "Supported features and commands:\n- Normal messages: chat with the selected provider\n- open Notepad / open Chrome: asks before launch\n- research Wikipedia TOPIC / research GitHub TOPIC: explicit bounded public lookup\n- /tasks: recent task receipts\n- /clear-tasks: delete task receipts after confirmation\n- /research-history: recent archived research\n- /remind TIME | MESSAGE, /reminders, /cancel-reminder ID\n- /remember TEXT, /memories, /forget ID, /forget-all\n- /experiences, /skills, /learn TRIGGER | INSTRUCTIONS, /approve-skill ID, /reject-skill ID\n- Check AI status: performs a real provider generation check\nLimitations: only Notepad/Chrome launching is supported; research is not independent fact verification; voice, live UI Automation and background reminders are not implemented.")
+        self._append("JARVIS", "Supported features and commands:\n- Normal messages: chat with the selected provider\n- open Notepad / open Chrome: asks before launch\n- research Wikipedia TOPIC / research GitHub TOPIC: explicit bounded public lookup\n- /tasks: recent task receipts\n- /clear-tasks: delete task receipts after confirmation\n- /research-history: recent archived research\n- /remind TIME | MESSAGE, /reminders, /cancel-reminder ID\n- /remember TEXT, /memories, /forget ID, /forget-all\n- /experiences, /skills, /learn TRIGGER | INSTRUCTIONS, /approve-skill ID, /reject-skill ID\n- Check AI status: performs a real provider generation check\nLimitations: only Notepad/Chrome launching is supported; Stop cannot interrupt an in-flight provider/network call and discards its result at the next safe boundary; research is not independent fact verification; voice and live UI Automation are not implemented.")
         return True
 
     def _handle_task_history_command(self, message: str) -> bool:
