@@ -7,7 +7,7 @@ import tkinter as tk
 from tkinter import messagebox, scrolledtext, simpledialog, ttk
 from datetime import datetime, timezone
 
-from jarvis.reminders import ReminderStore
+from jarvis.reminders import ReminderStore, parse_natural_reminder
 from jarvis.memory import MemoryStore
 from jarvis.learning import LearningStore
 from jarvis.auto_learning import AutomaticLearning
@@ -188,6 +188,33 @@ class JarvisWindow:
 
     def _handle_reminder_command(self, message: str) -> bool:
         lowered = message.casefold().strip()
+        natural_prefixes = (
+            "remind me in ", "please remind me in ", "jarvis remind me in ",
+            "jarvis, remind me in ", "remind me at ", "remind me today ",
+            "remind me tomorrow ", "please remind me at ", "please remind me today ",
+            "please remind me tomorrow ", "jarvis remind me at ", "jarvis, remind me at ",
+            "jarvis remind me today ", "jarvis, remind me today ",
+            "jarvis remind me tomorrow ", "jarvis, remind me tomorrow ",
+        )
+        natural_relative_tail = (
+            lowered.startswith(("remind me to ", "please remind me to ", "jarvis remind me to ", "jarvis, remind me to "))
+            and any(unit in lowered for unit in (" in minute", " in min", " in hour", " in hr", " in day"))
+        )
+        if lowered.startswith(natural_prefixes) or natural_relative_tail:
+            parsed = parse_natural_reminder(message)
+            if parsed is None:
+                self._append("JARVIS", "I couldn't safely determine that reminder time, so nothing was saved. Say, for example, 'Remind me in 20 minutes to study', 'Remind me tomorrow at 8:30 PM to study', or use /remind with a full ISO time and timezone.")
+                return True
+            due_at, content = parsed
+            try:
+                reminder = self.reminders.create(due_at, content)
+            except (ValueError, OSError):
+                self._append("JARVIS", "Reminder not saved. Check that the time is valid and the message is not too long.")
+                return True
+            local_due = datetime.fromisoformat(due_at).strftime("%a %d %b %Y, %I:%M %p %Z").strip()
+            self._record_activity("reminder_create", "success", f"id={reminder.reminder_id}")
+            self._append("JARVIS", f"Saved reminder #{reminder.reminder_id} for {local_due} in your PC's local time. JARVIS can notify you while its window stays open.")
+            return True
         if lowered == "/reminders":
             items = self.reminders.list()
             if not items:
