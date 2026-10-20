@@ -4,6 +4,7 @@ from dataclasses import dataclass
 
 from jarvis.credentials import CredentialStore
 from jarvis.providers.base import ChatProvider
+from jarvis.providers.gemini import GeminiProvider
 from jarvis.providers.ollama import OllamaProvider
 
 
@@ -15,17 +16,18 @@ class ProviderConfig:
 
 
 def build_provider(config: ProviderConfig | None = None, *, credentials: CredentialStore | None = None) -> ChatProvider:
-    """Construct a supported provider; never silently falls back to cloud.
-
-    `credentials` is accepted for the future keyed-cloud providers but is not
-    read for Ollama. Unsupported provider names fail explicitly.
-    """
+    """Construct a provider; cloud is used only when explicitly selected."""
     selected = config or ProviderConfig()
     name = selected.name.strip().casefold()
     if name == "ollama":
         return OllamaProvider(model=selected.model)
-    if name in {"gemini", "openrouter"}:
+    if name == "gemini":
         if credentials is None:
-            raise ValueError("Cloud provider selection requires a secure credential store.")
-        raise NotImplementedError("This cloud provider is not implemented yet; no request was sent.")
-    raise ValueError("Unsupported provider. Available provider: ollama.")
+            raise ValueError("Gemini requires Windows Credential Manager credentials.")
+        api_key = credentials.get_secret("gemini.api_key")
+        if not api_key:
+            raise ValueError("Gemini API key is not saved in secure storage.")
+        return GeminiProvider(api_key=api_key, model=selected.model or "gemini-2.5-flash")
+    if name == "openrouter":
+        raise NotImplementedError("OpenRouter is not implemented yet; no request was sent.")
+    raise ValueError("Unsupported provider. Available providers: ollama, gemini.")
