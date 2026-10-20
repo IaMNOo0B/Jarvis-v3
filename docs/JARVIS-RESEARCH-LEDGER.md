@@ -58,8 +58,8 @@ The submitted ledger covers these named collections and numbered studies. Its fu
 | Skill proposals | Text-only review path exists | automatic proposal quality tests; permission isolation |
 | Natural-language general action orchestration | Incomplete | intent/plan/execute/postcondition tests |
 | Self-healing | Repair proposal/verification/review ledger implemented in `jarvis/self_healing.py`; no automatic code editing or rollback executor | CI run 39432151659 passed; isolated patch executor, real test runner, backup/rollback and Windows verification remain open |
-| Local knowledge retrieval | Bounded lexical search across local docs/knowledge, source paths and untrusted-data warning; no semantic indexing or external ingestion | CI run 39432151659 passed; external web/repository ingestion and refresh/deletion workflow remain open |
-| Web/repository scout | Not implemented at import | source provenance, rate limits, license/security checks |
+| Local knowledge retrieval | Bounded lexical search across local docs/knowledge, source paths and untrusted-data warning; research results are separately archived in SQLite | run 101 passed; no semantic indexing, automatic ingestion into knowledge chunks, or refresh/deletion workflow |
+| Explicit public research | Implemented for Wikipedia search and GitHub repository metadata using fixed HTTPS hosts, bounded results and source URLs; local SQLite archive added | run 101 passed; no crawling, license auditing, code checkout, scheduled scout or independent fact verification |
 | Reverse engineering skill | Not implemented at import | evidence-labelled static analysis and safe scope checks |
 | Live Windows UIA, voice, phone, browser | Not verified in V3 | real Windows end-to-end test receipts |
 | Automatic self-training of model weights | Not implemented | separate explicitly approved training pipeline and held-out evaluation |
@@ -87,3 +87,11 @@ Every new study gets: name, canonical URL/source, date checked, license, mechani
 - **GUI connection:** explicit requests such as `research Wikipedia artificial intelligence` and `research GitHub agent framework` run in a worker thread, show source URLs/snippets, and create evidence-labelled interaction history. External requests are only made for these explicit research phrases; normal chat does not silently send every message to the web.
 - **Tests added:** `tests/test_research.py` and `tests/test_task_planner.py` cover query validation, URL provenance, source errors and safe intent classification. GitHub Actions run 95 was queued/in progress during this update; its final conclusion must be checked before calling these latest changes verified.
 - **Remaining research-ledger requirement:** the original supplied ledger still has not been imported verbatim item-by-item. This index and receipts are not a substitute for importing the complete source list and reviewing each study. No old [BUILT] tag is promoted to a verified V3 feature merely because a similar idea has a new module.
+
+
+## Latest verification receipt
+
+- **GitHub Actions run 101:** [39434099439](https://github.com/IaMNOo0B/Jarvis-v3/actions/runs/39434099439) completed its standard-library unittest job successfully on the then-current feature branch, including the bounded research, task-planner, archive, and self-healing tests.
+- **Research archive:** `jarvis/research_archive.py` persists explicit research query, UTC save time, source title, HTTPS URL, snippet, source type, and limitations in SQLite. The GUI archives results and `/research-history` displays the last ten runs. It does not treat research text as executable instructions.
+- **Network guard:** research uses only the fixed Wikipedia and GitHub API host allowlist, bounded response size/timeouts, and blocks redirects. It never accepts an arbitrary URL as a fetch target.
+- **Still not a full autonomous research scout:** no scheduled background scans, broad web crawling, license/security audit, repository cloning, automatic code modification, or full original 258-entry verbatim import is claimed.
