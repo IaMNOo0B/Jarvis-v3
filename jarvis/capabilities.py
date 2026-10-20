@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Mapping
 
-from jarvis.desktop_actions import APP_EXECUTABLES, launch_app_with_approval
+from jarvis.desktop_actions import APP_EXECUTABLES, launch_app_with_approval, open_url_with_approval, validate_http_url
 from jarvis.desktop_automation import AppRegistry, PowerShellUIAutomationBackend, UIActionRequest, execute_ui_action
 from jarvis.orchestration import Capability, CapabilityRegistry, TaskOutcome
 from jarvis.research import PublicResearch
@@ -28,6 +28,19 @@ def build_capability_registry(
         if not result.success:
             return TaskOutcome("launch_app", "failed", result.detail)
         return TaskOutcome("launch_app", "attempted", result.detail, "os_process_launch_accepted")
+
+    def open_url(arguments: Mapping[str, object]) -> TaskOutcome:
+        browser = arguments.get("browser")
+        url = arguments.get("url")
+        if not isinstance(browser, str) or browser.strip().casefold() not in {"chrome", "edge"}:
+            return TaskOutcome("open_url", "blocked", "Browser is not on the allow-list.")
+        if validate_http_url(url) is None:
+            return TaskOutcome("open_url", "blocked", "URL rejected; provide one valid HTTP(S) URL without embedded credentials.")
+        result = open_url_with_approval(browser, url, user_approved=True)
+        if not result.success:
+            status = "blocked" if "rejected" in result.detail.casefold() or "allow-list" in result.detail.casefold() else "failed"
+            return TaskOutcome("open_url", status, result.detail)
+        return TaskOutcome("open_url", "attempted", result.detail, "os_open_url_request_accepted")
 
     def type_notepad_text(arguments: Mapping[str, object]) -> TaskOutcome:
         text = arguments.get("text")
@@ -77,6 +90,10 @@ def build_capability_registry(
         )
 
     registry.register(Capability("launch_app", launch, requires_approval=True, description="Launch a fixed allow-listed Windows app"))
+    registry.register(Capability(
+        "open_url", open_url, requires_approval=True,
+        description="Open one explicit, validated HTTP(S) URL in allow-listed Chrome or Edge",
+    ))
     registry.register(Capability(
         "type_notepad_text", type_notepad_text, requires_approval=True,
         description="Type requested text only into a detected blank Notepad document and verify exact read-back",
