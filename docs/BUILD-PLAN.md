@@ -55,8 +55,8 @@ This is a target layout, not a claim that these components already exist. Introd
 
 ### M4 — Windows desktop actions
 - [ ] App registry and deterministic verb-object intent handling.
-- [x] Define a UI Automation-first adapter contract and allow-listed app/action registry (no live adapter wired yet).
-- [ ] UI Automation preferred over coordinate clicking in the live Windows adapter.
+- [x] Define a UI Automation-first adapter contract and allow-listed app/action registry; wire a narrow Windows PowerShell adapter for blank-Notepad text entry with exact read-back verification (real Windows smoke test remains open).
+- [ ] Extend semantic UI Automation beyond the narrow Notepad text-entry workflow; do not introduce coordinate-only desktop automation.
 - [ ] Shell guard, visible activity/status, cancellation, and postcondition checks in live desktop integration.
 - [ ] Screenshot/image data held in memory only unless the user explicitly requests otherwise.
 - [ ] No claim of Windows support without a real Windows run.
@@ -102,7 +102,7 @@ This is a target layout, not a claim that these components already exist. Introd
 |---|---|---|
 | Fresh install starts on Windows | Open | Clean Windows install/startup receipt |
 | Provider health reflects real generation | Open | Minimal live generation result |
-| Desktop action confirms actual postcondition | Open | Windows action transcript with observed result; fake-adapter contract tests are not E2E evidence |
+| Notepad typing confirms actual postcondition on target Windows PC | Open | Real Windows transcript showing blank-document detection, input, exact read-back; fake-adapter contract tests are not E2E evidence |
 | Stop/Esc cancels in-flight work | Open | Cancellation integration test and GUI check |
 | Credentials never leak into logs/artifacts | Open | Automated secret-pattern scan and code review |
 | Updates preserve user data | Open | Upgrade test with pre-existing test data |
