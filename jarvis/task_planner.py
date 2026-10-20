@@ -6,7 +6,7 @@ Execution remains behind the GUI approval path and the action registry.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from jarvis.desktop_actions import parse_app_launch_batch, parse_app_launch_request, parse_notepad_type_request
+from jarvis.desktop_actions import parse_app_launch_batch, parse_app_launch_request, parse_notepad_type_request, parse_explicit_url_request
 
 
 @dataclass(frozen=True)
@@ -50,6 +50,21 @@ class TaskPlanner:
                 (
                     "Typing is restricted to a detected blank Notepad document; existing text is not replaced.",
                     "Live Windows UI Automation must be available; this path has not been verified on every Windows/Notepad version.",
+                ),
+            )
+        url_request = parse_explicit_url_request(text)
+        if url_request is not None:
+            browser, url = url_request
+            return TaskPlan(
+                text, "open_url",
+                (
+                    PlanStep("authorize", "Treat the explicit request to open this URL in the named/default browser as one-request authorization.", False),
+                    PlanStep("execute", f"Open the supplied HTTP(S) URL in allow-listed {browser.title()}.", True, "open_url", browser, url),
+                    PlanStep("verify", "Report that Windows accepted the navigation request; page load and page contents are not verified.", False),
+                ),
+                (
+                    "Only explicit HTTP(S) URLs are accepted; embedded credentials and non-web schemes are rejected.",
+                    "This opens the page only. It does not click, download, submit forms, or verify page content.",
                 ),
             )
         apps = parse_app_launch_batch(text)
