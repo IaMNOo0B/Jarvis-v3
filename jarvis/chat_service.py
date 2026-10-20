@@ -17,7 +17,7 @@ class ChatService:
         if intent.name == "exit":
             return "Goodbye, Sir."
         if self._provider is None:
-            return "No AI provider is configured yet; no action was performed."
+            return "No AI provider is configured yet; desktop actions are not enabled yet. No action was performed."
         try:
             response = self._provider.generate(
                 ChatRequest(message=intent.argument, timeout_seconds=timeout_seconds)
