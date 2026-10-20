@@ -155,8 +155,8 @@ class JarvisWindow:
                 task, response = payload
                 self._finish_response(str(task), str(response))
             elif kind == "action":
-                success, detail, task = payload
-                self._finish_action(bool(success), str(detail), str(task))
+                outcome, detail, task = payload
+                self._finish_action(str(outcome), str(detail), str(task))
             elif kind == "health":
                 healthy, detail = payload
                 label = "HEALTHY" if healthy else "NOT HEALTHY"
@@ -300,6 +300,7 @@ class JarvisWindow:
             "response_generated": "response generated; goal completion unverified",
             "action_accepted": "OS accepted action; final state unverified",
             "action_failed": "action failed",
+            "action_unknown": "outcome unknown; check before retrying",
             "provider_failed": "provider failed",
             "research_succeeded": "public-source lookup returned results",
             "research_failed": "public-source lookup failed",
@@ -566,16 +567,16 @@ class JarvisWindow:
                     )
                     outcome = runtime.capability_result
                     if token.cancelled:
-                        event = (False, "Cancellation arrived during app launch. The app may have opened; check the desktop before retrying.")
+                        event = ("action_unknown", "Cancellation arrived during app launch. The app may have opened; check the desktop before retrying.")
                     elif runtime.status != "attempted" or outcome is None:
-                        event = (False, runtime.detail)
+                        event = ("action_failed", runtime.detail)
                     else:
-                        event = (True, outcome.detail)
+                        event = ("action_accepted", outcome.detail)
                 except OperationCancelled:
                     self._post_event("cancelled", message)
                     return
                 except Exception:
-                    event = (False, "Unexpected launch error. No further action was taken.")
+                    event = ("action_failed", "Unexpected launch error. No further action was taken.")
                 self._post_event("action", (event[0], event[1], message))
 
             threading.Thread(target=launch, daemon=True).start()
@@ -605,23 +606,24 @@ class JarvisWindow:
 
         threading.Thread(target=work, daemon=True).start()
 
-    def _finish_action(self, success: bool, detail: str, task: str) -> None:
+    def _finish_action(self, outcome: str, detail: str, task: str) -> None:
         if self.closing:
             return
-        self._record_activity("desktop_launch", "accepted" if success else "failed")
+        activity_status = {"action_accepted": "accepted", "action_failed": "failed", "action_unknown": "unknown"}.get(outcome, "failed")
+        self._record_activity("desktop_launch", activity_status)
         try:
-            receipt = self.task_receipts.record(task, "action_accepted" if success else "action_failed", evidence=detail)
+            receipt = self.task_receipts.record(task, outcome, evidence=detail)
             self._record_activity("task_receipt", receipt["outcome"], f"id={receipt['id']}")
         except (ValueError, OSError):
             self._record_activity("task_receipt", "not_saved", "desktop result remains visible but receipt was not saved")
         try:
-            reflection = self.auto_learning.reflect(task, outcome="action_accepted" if success else "action_failed", evidence=detail)
+            reflection = self.auto_learning.reflect(task, outcome=outcome, evidence=detail)
             self._record_activity("automatic_reflection", reflection.outcome, f"episode={reflection.episode.episode_id}")
         except (ValueError, OSError):
             self._record_activity("automatic_reflection", "failed", "action result was not recorded")
         self._append("JARVIS", detail)
         self._finish_work_controls()
-        self.status.set("Action: launch request accepted" if success else "Action: not completed")
+        self.status.set({"action_accepted": "Action: launch request accepted; visibility unverified", "action_unknown": "Action: outcome unknown; check desktop before retrying"}.get(outcome, "Action: not completed"))
 
     def _finish_response(self, task: str, response: str) -> None:
         if self.closing:
