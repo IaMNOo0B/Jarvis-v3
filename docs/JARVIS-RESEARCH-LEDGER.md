@@ -102,3 +102,5 @@ Every new study gets: name, canonical URL/source, date checked, license, mechani
 - Connected GUI chat, research, and allow-listed launch completion handlers to the receipt store. Added `/tasks` to display the ten latest receipts and their limitations.
 - Added `tests/test_task_receipts.py` for persistence, validation, field bounds, and secret redaction.
 - **Verification status:** source and tests have been committed to the draft PR branch, but a CI run for the newest commit has not yet been confirmed. Windows GUI execution is unverified.
+
+- Follow-up usability/privacy additions: `/help` exposes supported commands and current limitations; `/clear-tasks` asks for confirmation before deleting task receipts and does not delete memory or research records. `TaskReceiptStore.clear()` has a unit test. CI for these latest changes is still unconfirmed.
