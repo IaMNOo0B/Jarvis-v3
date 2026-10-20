@@ -73,6 +73,13 @@ class TaskReceiptStore:
             row = db.execute("SELECT * FROM task_receipts WHERE id=?", (cursor.lastrowid,)).fetchone()
         return dict(row)
 
+    def clear(self) -> int:
+        """Delete task receipts only after the caller has obtained confirmation."""
+        with self._connect() as db:
+            count = db.execute("SELECT COUNT(*) FROM task_receipts").fetchone()[0]
+            db.execute("DELETE FROM task_receipts")
+        return int(count)
+
     def recent(self, limit: int = 10) -> list[dict]:
         if not isinstance(limit, int) or not 1 <= limit <= 100:
             raise ValueError("Limit must be between 1 and 100.")
