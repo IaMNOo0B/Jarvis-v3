@@ -1,8 +1,7 @@
 """Execute bounded plans through code-registered capabilities only.
 
-Plans may describe multiple steps, but executable steps must map to known intents and
-registered capabilities. Multi-app launch plans run sequentially and stop at the first
-failure so the result can report partial side effects accurately.
+Plans may contain a small fixed sequence. Each executable step must match the
+intent's code-owned capability sequence; model text never creates new handlers.
 """
 from __future__ import annotations
 
@@ -12,7 +11,7 @@ from typing import Mapping
 from jarvis.cancellation import CancellationToken
 from jarvis.desktop_actions import APP_EXECUTABLES
 from jarvis.orchestration import CapabilityRegistry, TaskOutcome, run_capability
-from jarvis.task_planner import TaskPlan, PlanStep
+from jarvis.task_planner import TaskPlan
 
 
 @dataclass(frozen=True)
@@ -34,11 +33,12 @@ class RuntimeResult:
     step_results: tuple[RuntimeStepResult, ...] = ()
 
 
-_CAPABILITY_FOR_INTENT = {
-    "launch_allowlisted_app": "launch_app",
-    "launch_allowlisted_apps": "launch_app",
-    "research_wikipedia": "research_wikipedia",
-    "research_github": "research_github",
+_CAPABILITIES_FOR_INTENT = {
+    "launch_allowlisted_app": ("launch_app",),
+    "launch_allowlisted_apps": ("launch_app",),
+    "research_wikipedia": ("research_wikipedia",),
+    "research_github": ("research_github",),
+    "notepad_type_text": ("launch_app", "type_notepad_text"),
 }
 _CONTINUE_STATUSES = {"verified", "attempted"}
 
@@ -51,11 +51,11 @@ def execute_plan(
     approved: bool = False,
     cancellation: CancellationToken | None = None,
 ) -> RuntimeResult:
-    """Execute supported plan steps sequentially; never execute ordinary chat.
+    """Execute registered steps sequentially and report side effects honestly.
 
-    The multi-app path accepts only 2–5 unique allow-listed targets. Each app is
-    attempted in plan order. On failure, later steps are skipped, and prior
-    side effects are called out instead of being rolled back or retried blindly.
+    Multi-app plans are bounded to five unique allow-listed targets. The Notepad
+    typing workflow is a fixed two-capability sequence and types only into a
+    detected blank document, with exact read-back verification from its handler.
     """
     if plan.intent == "empty":
         return RuntimeResult(plan.intent, "invalid_request", "The request is empty.")
@@ -64,46 +64,68 @@ def execute_plan(
     if plan.intent == "invalid_research":
         return RuntimeResult(plan.intent, "invalid_request", "A research topic is required.")
 
-    expected_capability = _CAPABILITY_FOR_INTENT.get(plan.intent)
-    if expected_capability is None:
+    expected = _CAPABILITIES_FOR_INTENT.get(plan.intent)
+    if expected is None:
         return RuntimeResult(plan.intent, "blocked", "This intent is not connected to an approved capability.")
 
     action_steps = tuple(step for step in plan.steps if step.action is not None)
     if not action_steps:
         return RuntimeResult(plan.intent, "blocked", "The plan contains no executable registered capability.")
-    if any(step.action != expected_capability for step in action_steps):
-        return RuntimeResult(plan.intent, "blocked", "A plan step does not match the intent's registered capability.")
 
     is_batch = plan.intent == "launch_allowlisted_apps"
+    is_notepad_sequence = plan.intent == "notepad_type_text"
     if is_batch:
         targets = tuple(step.target for step in action_steps)
         if (
             not 2 <= len(action_steps) <= 5
+            or tuple(step.action for step in action_steps) != ("launch_app",) * len(action_steps)
             or any(not isinstance(target, str) or target not in APP_EXECUTABLES for target in targets)
             or len(set(targets)) != len(targets)
         ):
             return RuntimeResult(plan.intent, "blocked", "The multi-app plan contains invalid or repeated allow-list targets.")
-    elif len(action_steps) != 1:
-        return RuntimeResult(plan.intent, "blocked", "This intent supports exactly one executable capability step.")
+    elif is_notepad_sequence:
+        if (
+            tuple(step.action for step in action_steps) != expected
+            or action_steps[0].target != "notepad"
+            or action_steps[1].target != "blank document"
+            or not isinstance(action_steps[1].input_text, str)
+            or not action_steps[1].input_text.strip()
+            or len(action_steps[1].input_text) > 2000
+        ):
+            return RuntimeResult(plan.intent, "blocked", "The Notepad plan is malformed; no action was run.")
+    elif tuple(step.action for step in action_steps) != expected:
+        return RuntimeResult(plan.intent, "blocked", "Plan steps do not match the intent's registered capability sequence.")
 
-    if registry.get(expected_capability) is None:
-        return RuntimeResult(plan.intent, "unavailable", "The required capability is not registered; no action was run.")
+    # Resolve every required capability before starting the first side effect.
+    capability_names = tuple(step.action for step in action_steps)
+    missing = [name for name in capability_names if name is not None and registry.get(name) is None]
+    if missing:
+        return RuntimeResult(plan.intent, "unavailable", f"Required capability '{missing[0]}' is not registered; no action was run.")
 
     base_arguments = dict(arguments or {})
     outcomes: list[TaskOutcome] = []
     traces: list[RuntimeStepResult] = []
     for index, step in enumerate(action_steps):
+        capability_name = step.action
+        if capability_name is None:
+            return RuntimeResult(plan.intent, "blocked", "A planned executable step has no capability.", step_results=tuple(traces))
         step_arguments = dict(base_arguments)
-        if step.target is not None:
-            if plan.intent in {"launch_allowlisted_app", "launch_allowlisted_apps"}:
+
+        if capability_name == "launch_app":
+            if step.target is not None:
                 if not isinstance(step.target, str) or step.target not in APP_EXECUTABLES:
                     return RuntimeResult(plan.intent, "blocked", "The app target is not allow-listed.", step_results=tuple(traces))
                 step_arguments["app"] = step.target
-        elif is_batch:
-            return RuntimeResult(plan.intent, "blocked", "A multi-app step is missing its target.", step_results=tuple(traces))
+            elif is_batch or is_notepad_sequence:
+                return RuntimeResult(plan.intent, "blocked", "A launch step is missing its allow-listed target.", step_results=tuple(traces))
+        elif capability_name == "type_notepad_text":
+            if step.target != "blank document":
+                return RuntimeResult(plan.intent, "blocked", "Typing target is not allow-listed.", step_results=tuple(traces))
+            step_arguments["target"] = step.target
+            step_arguments["text"] = step.input_text
 
         outcome = run_capability(
-            expected_capability,
+            capability_name,
             step_arguments,
             registry=registry,
             approved=approved,
@@ -119,13 +141,21 @@ def execute_plan(
                     "Skipped because an earlier step did not complete.",
                     "none", remaining.target,
                 ))
-            if is_batch and any(item.status in _CONTINUE_STATUSES for item in outcomes[:-1]):
-                accepted = sum(item.status in _CONTINUE_STATUSES for item in outcomes[:-1])
-                detail = (
-                    f"Partial execution: {accepted} of {len(action_steps)} app-launch requests were accepted "
-                    f"before step {index + 1} ({step.target or step.name}) returned {outcome.status}; "
-                    f"all remaining steps were skipped. {outcome.detail} Check which apps opened before retrying."
-                )
+            earlier_steps_ran = any(item.status in _CONTINUE_STATUSES for item in outcomes[:-1])
+            if len(action_steps) > 1 and earlier_steps_ran:
+                if is_batch:
+                    accepted = sum(item.status in _CONTINUE_STATUSES for item in outcomes[:-1])
+                    detail = (
+                        f"Partial execution: {accepted} of {len(action_steps)} app-launch requests were accepted "
+                        f"before step {index + 1} ({step.target or step.name}) returned {outcome.status}; "
+                        f"all remaining steps were skipped. {outcome.detail} Check which apps opened before retrying."
+                    )
+                else:
+                    detail = (
+                        f"Partial execution: an earlier step ran before step {index + 1} "
+                        f"({capability_name}) returned {outcome.status}; all remaining steps were skipped. "
+                        f"{outcome.detail} Check the desktop state before retrying."
+                    )
                 return RuntimeResult(plan.intent, "partial", detail, outcome.evidence, outcome, tuple(traces))
             return RuntimeResult(plan.intent, outcome.status, outcome.detail, outcome.evidence, outcome, tuple(traces))
 
@@ -137,5 +167,6 @@ def execute_plan(
             + ". App visibility and readiness have not been verified."
         )
         return RuntimeResult(plan.intent, "attempted", detail, last.evidence, last, tuple(traces))
-
+    if is_notepad_sequence:
+        return RuntimeResult(plan.intent, "verified", last.detail, last.evidence, last, tuple(traces))
     return RuntimeResult(plan.intent, last.status, last.detail, last.evidence, last, tuple(traces))
