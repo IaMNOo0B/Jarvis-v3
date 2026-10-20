@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from typing import Mapping
 
 from jarvis.cancellation import CancellationToken
-from jarvis.desktop_actions import APP_EXECUTABLES
+from jarvis.desktop_actions import APP_EXECUTABLES, validate_http_url
 from jarvis.orchestration import CapabilityRegistry, TaskOutcome, run_capability
 from jarvis.task_planner import TaskPlan
 
@@ -58,6 +58,7 @@ def action_event_for_runtime(result: RuntimeResult) -> tuple[str, str]:
 
 _CAPABILITIES_FOR_INTENT = {
     "launch_allowlisted_app": ("launch_app",),
+    "open_url": ("open_url",),
     "launch_allowlisted_apps": ("launch_app",),
     "research_wikipedia": ("research_wikipedia",),
     "research_github": ("research_github",),
@@ -97,6 +98,7 @@ def execute_plan(
 
     is_batch = plan.intent == "launch_allowlisted_apps"
     is_notepad_sequence = plan.intent == "notepad_type_text"
+    is_url_navigation = plan.intent == "open_url"
     if is_batch:
         targets = tuple(step.target for step in action_steps)
         if (
@@ -106,6 +108,14 @@ def execute_plan(
             or len(set(targets)) != len(targets)
         ):
             return RuntimeResult(plan.intent, "blocked", "The multi-app plan contains invalid or repeated allow-list targets.")
+    elif is_url_navigation:
+        if (
+            tuple(step.action for step in action_steps) != expected
+            or len(action_steps) != 1
+            or action_steps[0].target not in {"chrome", "edge"}
+            or validate_http_url(action_steps[0].input_text) is None
+        ):
+            return RuntimeResult(plan.intent, "blocked", "The browser URL step is malformed or unsafe; no action was run.")
     elif is_notepad_sequence:
         if (
             tuple(step.action for step in action_steps) != expected
@@ -141,6 +151,11 @@ def execute_plan(
                 step_arguments["app"] = step.target
             elif is_batch or is_notepad_sequence:
                 return RuntimeResult(plan.intent, "blocked", "A launch step is missing its allow-listed target.", step_results=tuple(traces))
+        elif capability_name == "open_url":
+            if step.target not in {"chrome", "edge"} or validate_http_url(step.input_text) is None:
+                return RuntimeResult(plan.intent, "blocked", "The browser URL target is not allow-listed or the URL is invalid.", step_results=tuple(traces))
+            step_arguments["browser"] = step.target
+            step_arguments["url"] = step.input_text
         elif capability_name == "type_notepad_text":
             if step.target != "blank document":
                 return RuntimeResult(plan.intent, "blocked", "Typing target is not allow-listed.", step_results=tuple(traces))
