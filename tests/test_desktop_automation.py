@@ -117,6 +117,17 @@ class DesktopAutomationContractTests(unittest.TestCase):
                 self.assertFalse(backend._invoke("type_text", "notepad", "blank document", "x" * 2001))
             run.assert_not_called()
 
+    def test_powershell_adapter_rejects_utf16_oversize_text_before_process_start(self):
+        with tempfile.TemporaryDirectory() as directory:
+            script = Path(directory) / "fixed.ps1"
+            script.write_text("# fixed test helper", encoding="utf-8")
+            backend = PowerShellUIAutomationBackend(
+                powershell_executable="powershell.exe", script_path=script, platform_name="nt",
+            )
+            with patch("jarvis.desktop_automation.subprocess.run") as run:
+                self.assertFalse(backend._invoke("type_text", "notepad", "blank document", "😀" * 1001))
+            run.assert_not_called()
+
     def test_powershell_adapter_reports_nonzero_exit_as_failure(self):
         with tempfile.TemporaryDirectory() as directory:
             script = Path(directory) / "fixed.ps1"
