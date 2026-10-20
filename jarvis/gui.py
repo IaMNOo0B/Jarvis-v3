@@ -108,9 +108,61 @@ class JarvisWindow:
                 self.send_button.configure(state="normal")
         self.root.after(40, self._drain_events)
 
-    def _check_due_reminders(self) -> None:\n        if self.closing:\n            return\n        try:\n            for reminder in self.reminders.due():\n                if reminder.reminder_id in self._notified_reminders:\n                    continue\n                # Mark before showing UI so repeated polling cannot duplicate this session notification.\n                if self.reminders.mark_fired(reminder.reminder_id):\n                    self._notified_reminders.add(reminder.reminder_id)\n                    self._append("REMINDER", reminder.message)\n                    messagebox.showinfo("JARVIS reminder", reminder.message, parent=self.root)\n        except Exception:\n            self.status.set("Reminder check failed; saved reminders were not deleted.")\n        if not self.closing:\n            self.root.after(1000, self._check_due_reminders)\n\n    def _handle_reminder_command(self, message: str) -> bool:\n        lowered = message.casefold().strip()\n        if lowered == "/reminders":\n            items = self.reminders.list()\n            if not items:\n                self._append("JARVIS", "No pending reminders.")\n            else:\n                lines = [f"#{item.reminder_id} · {item.due_at} · {item.message}" for item in items]\n                self._append("JARVIS", "Pending reminders:\\n" + "\\n".join(lines))\n            return True\n        if lowered.startswith("/cancel-reminder "):\n            raw_id = message.strip().split(maxsplit=1)[1]\n            if not raw_id.isdigit():\n                self._append("JARVIS", "Usage: /cancel-reminder ID")\n            elif self.reminders.cancel(int(raw_id)):\n                self._record_activity("reminder_cancel", "success")
-                self._append("JARVIS", f"Cancelled reminder #{raw_id}.")\n            else:\n                self._append("JARVIS", f"No pending reminder found with ID {raw_id}.")\n            return True\n        if lowered.startswith("/remind "):\n            payload = message.strip()[len("/remind "): ]\n            if "|" not in payload:\n                self._append("JARVIS", "Usage: /remind YYYY-MM-DDTHH:MM:SS+05:30 | reminder text (time must include timezone)")\n                return True\n            due_at, content = payload.split("|", 1)\n            try:\n                reminder = self.reminders.create(due_at.strip(), content)\n            except (ValueError, OSError):\n                self._append("JARVIS", "Reminder not saved. Check the ISO date/time, timezone offset, and message.")\n                return True\n            self._record_activity("reminder_create", "success")
-            self._append("JARVIS", f"Saved reminder #{reminder.reminder_id} for {reminder.due_at} (UTC).")\n            return True\n        return False\n\n    def _handle_memory_command(self, message: str) -> bool:
+    def _check_due_reminders(self) -> None:
+        if self.closing:
+            return
+        try:
+            for reminder in self.reminders.due():
+                if reminder.reminder_id in self._notified_reminders:
+                    continue
+                # Mark before showing UI so repeated polling cannot duplicate this session notification.
+                if self.reminders.mark_fired(reminder.reminder_id):
+                    self._notified_reminders.add(reminder.reminder_id)
+                    self._record_activity("reminder_due", "notified")
+                    self._append("REMINDER", reminder.message)
+                    messagebox.showinfo("JARVIS reminder", reminder.message, parent=self.root)
+        except Exception:
+            self.status.set("Reminder check failed; saved reminders were not deleted.")
+        if not self.closing:
+            self.root.after(1000, self._check_due_reminders)
+
+    def _handle_reminder_command(self, message: str) -> bool:
+        lowered = message.casefold().strip()
+        if lowered == "/reminders":
+            items = self.reminders.list()
+            if not items:
+                self._append("JARVIS", "No pending reminders.")
+            else:
+                lines = [f"#{item.reminder_id} · {item.due_at} · {item.message}" for item in items]
+                self._append("JARVIS", "Pending reminders:\\n" + "\\n".join(lines))
+            return True
+        if lowered.startswith("/cancel-reminder "):
+            raw_id = message.strip().split(maxsplit=1)[1]
+            if not raw_id.isdigit():
+                self._append("JARVIS", "Usage: /cancel-reminder ID")
+            elif self.reminders.cancel(int(raw_id)):
+                self._record_activity("reminder_cancel", "success")
+                self._append("JARVIS", f"Cancelled reminder #{raw_id}.")
+            else:
+                self._append("JARVIS", f"No pending reminder found with ID {raw_id}.")
+            return True
+        if lowered.startswith("/remind "):
+            payload = message.strip()[len("/remind "):]
+            if "|" not in payload:
+                self._append("JARVIS", "Usage: /remind YYYY-MM-DDTHH:MM:SS+05:30 | reminder text (time must include timezone)")
+                return True
+            due_at, content = payload.split("|", 1)
+            try:
+                reminder = self.reminders.create(due_at.strip(), content)
+            except (ValueError, OSError):
+                self._append("JARVIS", "Reminder not saved. Check the ISO date/time, timezone offset, and message.")
+                return True
+            self._record_activity("reminder_create", "success")
+            self._append("JARVIS", f"Saved reminder #{reminder.reminder_id} for {reminder.due_at} (UTC).")
+            return True
+        return False
+
+    def _handle_memory_command(self, message: str) -> bool:
         stripped = message.strip()
         lowered = stripped.casefold()
         if lowered.startswith("/remember "):
