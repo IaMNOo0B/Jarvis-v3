@@ -6,7 +6,7 @@ Execution remains behind the GUI approval path and the action registry.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from jarvis.desktop_actions import APP_EXECUTABLES, parse_app_launch_request
+from jarvis.desktop_actions import parse_app_launch_batch, parse_app_launch_request
 
 
 @dataclass(frozen=True)
@@ -15,6 +15,7 @@ class PlanStep:
     description: str
     requires_approval: bool
     action: str | None = None
+    target: str | None = None
 
 
 @dataclass(frozen=True)
@@ -32,13 +33,26 @@ class TaskPlanner:
         text = request.strip()
         if not text:
             return TaskPlan(text, "empty", ())
+        apps = parse_app_launch_batch(text)
+        if apps:
+            steps = [PlanStep("authorize", "Treat Sir's explicit compound launch request as authorization for these listed app launches.", False)]
+            steps.extend(
+                PlanStep("execute", f"Launch allow-listed app {app.title()}.", True, "launch_app", app)
+                for app in apps
+            )
+            steps.append(PlanStep("verify", "Report each operating-system launch result; app visibility is not guaranteed.", False))
+            return TaskPlan(
+                text, "launch_allowlisted_apps", tuple(steps),
+                ("Apps are launched sequentially. If a launch fails, later launches are skipped; earlier launches may already have occurred.",
+                 "A successful process-launch request does not prove the app window is visible or ready."),
+            )
         app = parse_app_launch_request(text)
         if app:
             return TaskPlan(
                 text, "launch_allowlisted_app",
                 (
                     PlanStep("authorize", f"Treat Sir's explicit request to open {app.title()} as one-request authorization.", False),
-                    PlanStep("execute", f"Launch allow-listed app {app.title()} without a shell or another confirmation dialog.", True, "launch_app"),
+                    PlanStep("execute", f"Launch allow-listed app {app.title()} without a shell or another confirmation dialog.", True, "launch_app", app),
                     PlanStep("verify", "Report the operating-system launch result; app visibility is not guaranteed.", False),
                 ),
                 ("A successful process-launch request does not prove the app window is visible or ready.",),
