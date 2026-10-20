@@ -4,6 +4,9 @@ import queue
 import threading
 import tkinter as tk
 from tkinter import messagebox, scrolledtext, simpledialog, ttk
+from datetime import datetime, timezone
+
+from jarvis.reminders import ReminderStore
 
 from jarvis.chat_service import ChatService
 from jarvis.credentials import CredentialStore, CredentialStoreError
@@ -24,6 +27,8 @@ class JarvisWindow:
         self.busy = False
         self.closing = False
         self._events: queue.Queue[tuple[str, object]] = queue.Queue()
+        self.reminders = ReminderStore()
+        self._notified_reminders: set[int] = set()
 
         shell = ttk.Frame(root, padding=12)
         shell.pack(fill="both", expand=True)
@@ -88,9 +93,7 @@ class JarvisWindow:
                 self.status.set(f"AI status: {label} · {detail}")
                 self.busy = False
                 self.send_button.configure(state="normal")
-        self.root.after(40, self._drain_events)
-
-    def _set_provider(self, name: str) -> None:
+        self._check_due_reminders()\n        self.root.after(1000, self._check_due_reminders)\n        self.root.after(40, self._drain_events)\n\n    def _check_due_reminders(self) -> None:\n        if self.closing:\n            return\n        try:\n            for reminder in self.reminders.due():\n                if reminder.reminder_id in self._notified_reminders:\n                    continue\n                # Mark before showing UI so repeated polling cannot duplicate this session notification.\n                if self.reminders.mark_fired(reminder.reminder_id):\n                    self._notified_reminders.add(reminder.reminder_id)\n                    self._append("REMINDER", reminder.message)\n                    messagebox.showinfo("JARVIS reminder", reminder.message, parent=self.root)\n        except Exception:\n            self.status.set("Reminder check failed; saved reminders were not deleted.")\n        if not self.closing:\n            self.root.after(1000, self._check_due_reminders)\n\n    def _handle_reminder_command(self, message: str) -> bool:\n        lowered = message.casefold().strip()\n        if lowered == "/reminders":\n            items = self.reminders.list()\n            if not items:\n                self._append("JARVIS", "No pending reminders.")\n            else:\n                lines = [f"#{item.reminder_id} · {item.due_at} · {item.message}" for item in items]\n                self._append("JARVIS", "Pending reminders:\\n" + "\\n".join(lines))\n            return True\n        if lowered.startswith("/cancel-reminder "):\n            raw_id = message.strip().split(maxsplit=1)[1]\n            if not raw_id.isdigit():\n                self._append("JARVIS", "Usage: /cancel-reminder ID")\n            elif self.reminders.cancel(int(raw_id)):\n                self._append("JARVIS", f"Cancelled reminder #{raw_id}.")\n            else:\n                self._append("JARVIS", f"No pending reminder found with ID {raw_id}.")\n            return True\n        if lowered.startswith("/remind "):\n            payload = message.strip()[len("/remind "): ]\n            if "|" not in payload:\n                self._append("JARVIS", "Usage: /remind YYYY-MM-DDTHH:MM:SS+05:30 | reminder text (time must include timezone)")\n                return True\n            due_at, content = payload.split("|", 1)\n            try:\n                reminder = self.reminders.create(due_at.strip(), content)\n            except (ValueError, OSError):\n                self._append("JARVIS", "Reminder not saved. Check the ISO date/time, timezone offset, and message.")\n                return True\n            self._append("JARVIS", f"Saved reminder #{reminder.reminder_id} for {reminder.due_at} (UTC).")\n            return True\n        return False\n\n    def _set_provider(self, name: str) -> None:
         credentials = CredentialStore() if name == "gemini" else None
         provider = build_provider(ProviderConfig(name=name), credentials=credentials)
         self.provider = provider
@@ -153,9 +156,7 @@ class JarvisWindow:
         if not message:
             return
         self.entry.delete(0, "end")
-        self._append("Sir", message)
-        app_name = parse_app_launch_request(message)
-        if app_name:
+        self._append("Sir", message)\n        if self._handle_reminder_command(message):\n            return\n        app_name = parse_app_launch_request(message)\n        if app_name:
             approved = messagebox.askyesno(
                 "Approve app launch",
                 f"Allow JARVIS to launch {app_name.title()} on this PC?",
