@@ -14,6 +14,7 @@ from jarvis.auto_learning import AutomaticLearning
 from jarvis.self_healing import RepairLedger
 from jarvis.task_planner import TaskPlanner
 from jarvis.research import PublicResearch, ResearchError
+from jarvis.research_archive import ResearchArchive
 from jarvis.activity import ActivityJournal
 
 from jarvis.chat_service import ChatService
@@ -43,6 +44,7 @@ class JarvisWindow:
         self.repairs = RepairLedger()
         self.planner = TaskPlanner()
         self.research = PublicResearch()
+        self.research_archive = ResearchArchive()
         self.activity = ActivityJournal()
         self._notified_reminders: set[int] = set()
 
@@ -222,6 +224,27 @@ class JarvisWindow:
             return True
         return False
 
+    def _handle_research_history_command(self, message: str) -> bool:
+        if message.strip().casefold() != "/research-history":
+            return False
+        try:
+            runs = self.research_archive.recent(limit=10)
+        except (OSError, ValueError):
+            self._append("JARVIS", "Research history could not be read; no records were deleted.")
+            return True
+        if not runs:
+            self._append("JARVIS", "No archived research yet.")
+            return True
+        lines = []
+        for run in runs:
+            lines.append(f"#{run['id']} · {run['saved_at']} · {run['query']}")
+            for source in run["sources"]:
+                lines.append(f"  - {source['title']}: {source['url']}")
+            if run["warnings"]:
+                lines.append(f"  Limitations: {run['warnings']}")
+        self._append("JARVIS", "Recent archived research (source links preserved):\n" + "\n".join(lines))
+        return True
+
     def _handle_learning_command(self, message: str) -> bool:
         stripped = message.strip()
         lowered = stripped.casefold()
@@ -366,6 +389,8 @@ class JarvisWindow:
             return
         if self._handle_learning_command(message):
             return
+        if self._handle_research_history_command(message):
+            return
         plan = self.planner.plan(message)
         self._record_activity("task_plan", plan.intent, f"steps={len(plan.steps)}")
         if plan.intent == "invalid_research":
@@ -387,6 +412,11 @@ class JarvisWindow:
             def research_work():
                 try:
                     report = self.research.search(source, query)
+                    try:
+                        run_id = self.research_archive.save(report)
+                        self._record_activity("research_archive", "saved", f"run_id={run_id}")
+                    except (OSError, ValueError):
+                        self._record_activity("research_archive", "failed", "research results remain visible but were not archived")
                     lines = [f"Research query: {report.query}", ""]
                     if not report.sources:
                         lines.append("No results were returned by the source.")
