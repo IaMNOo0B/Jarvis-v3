@@ -6,7 +6,7 @@ Execution remains behind the GUI approval path and the action registry.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from jarvis.desktop_actions import parse_app_launch_batch, parse_app_launch_request
+from jarvis.desktop_actions import parse_app_launch_batch, parse_app_launch_request, parse_notepad_type_request
 
 
 @dataclass(frozen=True)
@@ -16,6 +16,7 @@ class PlanStep:
     requires_approval: bool
     action: str | None = None
     target: str | None = None
+    input_text: str | None = None
 
 
 @dataclass(frozen=True)
@@ -33,6 +34,24 @@ class TaskPlanner:
         text = request.strip()
         if not text:
             return TaskPlan(text, "empty", ())
+        text_to_type = parse_notepad_type_request(text)
+        if text_to_type is not None:
+            return TaskPlan(
+                text, "notepad_type_text",
+                (
+                    PlanStep("authorize", "Treat Sir's explicit request to enter this text in Notepad as one-request authorization.", False),
+                    PlanStep("execute", "Launch the allow-listed Notepad application.", True, "launch_app", "notepad"),
+                    PlanStep(
+                        "execute", "Type the requested text only into a detected blank Notepad document, then read it back.",
+                        True, "type_notepad_text", "blank document", text_to_type,
+                    ),
+                    PlanStep("verify", "Report verified only if UI Automation reads back the exact requested text.", False),
+                ),
+                (
+                    "Typing is restricted to a detected blank Notepad document; existing text is not replaced.",
+                    "Live Windows UI Automation must be available; this path has not been verified on every Windows/Notepad version.",
+                ),
+            )
         apps = parse_app_launch_batch(text)
         if apps:
             steps = [PlanStep("authorize", "Treat Sir's explicit compound launch request as authorization for these listed app launches.", False)]
