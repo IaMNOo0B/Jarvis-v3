@@ -104,3 +104,9 @@ Every new study gets: name, canonical URL/source, date checked, license, mechani
 - **Verification status:** source and tests have been committed to the draft PR branch, but a CI run for the newest commit has not yet been confirmed. Windows GUI execution is unverified.
 
 - Follow-up usability/privacy additions: `/help` exposes supported commands and current limitations; `/clear-tasks` asks for confirmation before deleting task receipts and does not delete memory or research records. `TaskReceiptStore.clear()` has a unit test. CI for these latest changes is still unconfirmed.
+
+## GUI usability and CI follow-up — 2026-10-20
+
+- Fixed GUI output strings that were rendering literal `\\n` characters instead of actual line breaks in reminders, memories, help, task history, and research results.
+- Expanded the existing Actions push trigger to include `docs/**` and `feat/**` branches so branch commits should also initiate the standard-library suite.
+- **CI status remains unconfirmed for the newest commit** through the available workflow-run lookup. Do not claim the newest tree passed until a successful run is visible. Windows GUI behavior remains unverified.
