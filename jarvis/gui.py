@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 from jarvis.reminders import ReminderStore
 from jarvis.memory import MemoryStore
 from jarvis.learning import LearningStore
+from jarvis.auto_learning import AutomaticLearning
 from jarvis.activity import ActivityJournal
 
 from jarvis.chat_service import ChatService
@@ -33,6 +34,7 @@ class JarvisWindow:
         self.reminders = ReminderStore()
         self.memory = MemoryStore()
         self.learning = LearningStore()
+        self.auto_learning = AutomaticLearning(self.learning)
         self.activity = ActivityJournal()
         self._notified_reminders: set[int] = set()
 
@@ -97,10 +99,11 @@ class JarvisWindow:
             except queue.Empty:
                 break
             if kind == "response":
-                self._finish_response(str(payload))
+                task, response = payload
+                self._finish_response(str(task), str(response))
             elif kind == "action":
-                success, detail = payload
-                self._finish_action(bool(success), str(detail))
+                success, detail, task = payload
+                self._finish_action(bool(success), str(detail), str(task))
             elif kind == "health":
                 healthy, detail = payload
                 label = "HEALTHY" if healthy else "NOT HEALTHY"
@@ -367,7 +370,7 @@ class JarvisWindow:
                     event = (result.success, result.detail)
                 except Exception:
                     event = (False, "Unexpected launch error. No further action was taken.")
-                self._post_event("action", event)
+                self._post_event("action", (event[0], event[1], message))
 
             threading.Thread(target=launch, daemon=True).start()
             return
@@ -385,19 +388,30 @@ class JarvisWindow:
 
         threading.Thread(target=work, daemon=True).start()
 
-    def _finish_action(self, success: bool, detail: str) -> None:
+    def _finish_action(self, success: bool, detail: str, task: str) -> None:
         if self.closing:
             return
         self._record_activity("desktop_launch", "accepted" if success else "failed")
+        try:
+            reflection = self.auto_learning.reflect(task, outcome="action_accepted" if success else "action_failed", evidence=detail)
+            self._record_activity("automatic_reflection", reflection.outcome, f"episode={reflection.episode.episode_id}")
+        except (ValueError, OSError):
+            self._record_activity("automatic_reflection", "failed", "action result was not recorded")
         self._append("JARVIS", detail)
         self.busy = False
         self.send_button.configure(state="normal")
         self.status.set("Action: launch request accepted" if success else "Action: not completed")
         self.entry.focus_set()
 
-    def _finish_response(self, response: str) -> None:
+    def _finish_response(self, task: str, response: str) -> None:
         if self.closing:
             return
+        failure = response.startswith(("The AI provider failed;", "The AI provider returned an empty response;", "An unexpected error occurred;"))
+        try:
+            reflection = self.auto_learning.reflect(task, outcome="provider_failed" if failure else "response_generated")
+            self._record_activity("automatic_reflection", reflection.outcome, f"episode={reflection.episode.episode_id}")
+        except (ValueError, OSError):
+            self._record_activity("automatic_reflection", "failed", "response outcome was not recorded")
         self._append("JARVIS", response)
         self.busy = False
         self.send_button.configure(state="normal")
