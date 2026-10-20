@@ -60,7 +60,7 @@ This is a target layout, not a claim that these components already exist. Introd
 - [ ] Extend semantic UI Automation beyond the narrow Notepad text-entry workflow; do not introduce coordinate-only desktop automation.
 - [ ] Shell guard, visible activity/status, cancellation, and postcondition checks in live desktop integration.
 - [ ] Screenshot/image data held in memory only unless the user explicitly requests otherwise.
-- [ ] No claim of Windows support without a real Windows run.
+- [ ] Run `python scripts/smoke_test_notepad_uia.py` on real Windows, inspect the exact read-back result, and record the outcome; no claim of Windows support before that run.
 
 **Exit:** Notepad/browser actions are tested on Windows with a recorded result and a safe failure path.
 
