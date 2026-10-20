@@ -55,8 +55,9 @@ This is a target layout, not a claim that these components already exist. Introd
 
 ### M4 — Windows desktop actions
 - [ ] App registry and deterministic verb-object intent handling.
-- [ ] UI Automation preferred over coordinate clicking.
-- [ ] Shell guard, visible activity/status, cancellation, and postcondition checks.
+- [x] Define a UI Automation-first adapter contract and allow-listed app/action registry (no live adapter wired yet).
+- [ ] UI Automation preferred over coordinate clicking in the live Windows adapter.
+- [ ] Shell guard, visible activity/status, cancellation, and postcondition checks in live desktop integration.
 - [ ] Screenshot/image data held in memory only unless the user explicitly requests otherwise.
 - [ ] No claim of Windows support without a real Windows run.
 
@@ -101,7 +102,7 @@ This is a target layout, not a claim that these components already exist. Introd
 |---|---|---|
 | Fresh install starts on Windows | Open | Clean Windows install/startup receipt |
 | Provider health reflects real generation | Open | Minimal live generation result |
-| Desktop action confirms actual postcondition | Open | Windows action transcript with observed result |
+| Desktop action confirms actual postcondition | Open | Windows action transcript with observed result; fake-adapter contract tests are not E2E evidence |
 | Stop/Esc cancels in-flight work | Open | Cancellation integration test and GUI check |
 | Credentials never leak into logs/artifacts | Open | Automated secret-pattern scan and code review |
 | Updates preserve user data | Open | Upgrade test with pre-existing test data |

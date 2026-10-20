@@ -1,0 +1,84 @@
+"""Allow-listed Windows app launching; no shell commands or arbitrary paths."""
+
+import os
+import shutil
+import subprocess
+from dataclasses import dataclass
+
+from jarvis.safety import ActionRegistry, ActionSpec, RiskLevel, SafetyGate
+
+
+@dataclass(frozen=True)
+class LaunchResult:
+    success: bool
+    app: str
+    detail: str
+
+
+def parse_app_launch_request(message: str) -> str | None:
+    """Recognize natural English/Hinglish requests for two allow-listed apps.
+
+    This is intentionally a small deterministic intent recognizer, not an LLM
+    deciding arbitrary commands. Unknown apps and ambiguous text stay in chat.
+    """
+    words = message.casefold().replace(",", " ").replace("?", " ").replace(".", " ").split()
+    if not words or len(words) > 24:
+        return None
+    # Remove polite wrappers while preserving a strict verb + allow-listed app match.
+    wrappers = {"jarvis", "please", "can", "could", "you", "will", "would", "kindly", "zara", "bhai", "sir", "for", "me", "now", "abhi", "please"}
+    words = [word for word in words if word not in wrappers]
+    apps = {"notepad", "chrome"}
+    launch_verbs = {"open", "launch", "start", "kholo", "khol", "kholna", "chalao", "shuru"}
+    if len(words) == 2:
+        if words[0] in launch_verbs and words[1] in apps:
+            return words[1]
+        if words[1] in {"kholo", "khol", "open", "chalao"} and words[0] in apps:
+            return words[0]
+    return None
+
+
+def launch_app_with_approval(app_name: str, *, user_approved: bool) -> LaunchResult:
+    """Run an allow-listed app launch only after a per-request explicit approval."""
+    app = app_name.strip().casefold()
+    if app not in {"notepad", "chrome"}:
+        return LaunchResult(False, app_name, "App is not on the allow-list.")
+    registry = ActionRegistry()
+    registry.register(ActionSpec(
+        name="launch_app",
+        risk=RiskLevel.REVERSIBLE,
+        description=f"Launch allow-listed app: {app}",
+        handler=lambda: launch_allowlisted_app(app),
+    ))
+    gate = SafetyGate()
+    try:
+        result = gate.execute("launch_app", registry, user_approved=user_approved)
+    except PermissionError:
+        return LaunchResult(False, app, "Launch blocked: explicit user approval is required.")
+    return result
+
+
+def launch_allowlisted_app(app_name: str) -> LaunchResult:
+    """Launch only known apps with argument arrays; caller must obtain approval first."""
+    app = app_name.strip().casefold()
+    if app == "notepad":
+        executable = shutil.which("notepad.exe") or (r"C:\Windows\System32\notepad.exe" if os.name == "nt" else None)
+    elif app == "chrome":
+        executable = shutil.which("chrome.exe")
+        if not executable and os.name == "nt":
+            candidates = (
+                os.path.expandvars(r"%ProgramFiles%\Google\Chrome\Application\chrome.exe"),
+                os.path.expandvars(r"%ProgramFiles(x86)%\Google\Chrome\Application\chrome.exe"),
+                os.path.expandvars(r"%LocalAppData%\Google\Chrome\Application\chrome.exe"),
+            )
+            executable = next((path for path in candidates if path and os.path.isfile(path)), None)
+    else:
+        return LaunchResult(False, app_name, "App is not on the allow-list.")
+    if os.name != "nt":
+        return LaunchResult(False, app, "Desktop launching is supported only on Windows.")
+    if not executable or not os.path.isfile(executable):
+        return LaunchResult(False, app, f"{app.title()} was not found on this PC.")
+    try:
+        subprocess.Popen([executable], shell=False, close_fds=True)
+    except OSError:
+        return LaunchResult(False, app, f"Windows could not start {app.title()}.")
+    return LaunchResult(True, app, f"Windows accepted the launch request for {app.title()}. App visibility has not been verified.")

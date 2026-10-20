@@ -15,8 +15,9 @@ class IntentTests(unittest.TestCase):
         self.assertEqual(parse_intent("Quit").name, "exit")
         self.assertEqual(parse_intent("/exit").name, "exit")
 
-    def test_unknown_input_remains_chat(self):
-        self.assertEqual(parse_intent("open chrome").name, "chat")
+    def test_action_request_is_routed_away_from_chat(self):
+        self.assertEqual(parse_intent("open chrome").name, "action_unavailable")
+        self.assertEqual(parse_intent("tell me a joke").name, "chat")
 
     def test_no_desktop_action_is_claimed(self):
         self.assertIn("not enabled yet", respond("open chrome"))
