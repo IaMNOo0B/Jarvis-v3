@@ -23,8 +23,8 @@ Sir types one natural-language message in the JARVIS window. JARVIS classifies t
 |---|---|---|
 | Conversation/provider | Text GUI; Ollama and explicit Gemini provider paths | Provider failure/timeout tests, clear status, no silent cloud fallback, live provider smoke tests |
 | Intent/planning | Deterministic supported-intent planner | Natural-language routing for known safe actions; clarify ambiguity; reject unknown actions |
-| Orchestration | Registered capability registry, planner-to-runtime bridge, GUI dispatch for bounded research and allowlisted app launch, Stop/Esc cancellation checkpoints | Integration regression tests, per-step plan journal, real Windows UI automation and verified postconditions |
-| Desktop | Allowlisted Notepad/Chrome launch; UIA adapter contract | Real Windows UIA backend; semantic selectors; focus/type/read/verify; no coordinate-only automation; app registry and shell guard |
+| Orchestration | Registered capability registry, planner-to-runtime bridge, GUI dispatch for bounded research, allow-listed app launch sequences, blank-Notepad typing workflow, Stop/Esc cancellation checkpoints | Integration regression tests, per-step plan journal, real Windows UI automation and verified postconditions |
+| Desktop | Allow-listed app launches and bounded multi-app sequences; narrow PowerShell UIA workflow for typing into a detected blank Notepad document with exact read-back | Real Windows smoke test and recorded evidence; extend semantic selectors to more apps/actions; no coordinate-only automation; keep the app registry and shell guard |
 | Verification | UI action postcondition contract and task receipts | Each action supplies observable evidence; distinguish attempted/failed/unknown/verified; no fake success |
 | Permissions | Fail-closed SafetyGate for supported actions | Centralize every side effect through policy; approvals for external/destructive/irreversible actions; test bypass attempts |
 | Memory | SQLite provenance, explicit remember/list/forget | data migration and backup tests; retrieval rules; deletion coverage; no untrusted memory as instructions |
@@ -62,8 +62,8 @@ Sir types one natural-language message in the JARVIS window. JARVIS classifies t
 - Add adversarial, ambiguity, timeout, cancellation and secret-redaction tests.
 
 ### Gate B — Desktop vertical slice
-- Implement Windows-only UI Automation backend behind an optional adapter.
-- Test Notepad: detect window, focus, type a harmless test string, read back document text, report verified only if read-back matches.
+- A narrow Windows-only PowerShell UI Automation backend is wired behind the adapter for Notepad text entry into a detected blank document; input is passed as JSON over stdin to a fixed script, with `shell=False` and a bounded helper timeout.
+- Unit tests cover approval gating, adapter payload/allow-list limits, partial outcomes and exact read-back contract. Still run the real Windows smoke test: detect Notepad, focus a blank document, type a harmless string, read back document text, and capture the actual result.
 - Test Chrome only for safe navigation to an explicit URL after policy approval; never infer arbitrary downloads, credentials or form submissions.
 - Run real Windows smoke tests; fake adapters remain unit tests, not proof of desktop support.
 
@@ -85,10 +85,10 @@ Sir types one natural-language message in the JARVIS window. JARVIS classifies t
 
 - JARVIS.bat created as one user-facing control menu; duplicate BAT entry points were removed from the working branch.
 - GUI multiline output formatting was corrected in the working branch.
-- Public research, archive, task receipts and reviewable learning/self-healing records exist as bounded prototype modules. Step receipts are now persisted for public research and allowlisted app launch and surfaced in `/tasks`; app launch remains attempted/unverified until a real window postcondition is observed.
+- Public research, archive, task receipts and reviewable learning/self-healing records exist as bounded prototype modules. Step receipts are now persisted for public research and allow-listed app launch sequences and surfaced in `/tasks`; Notepad text entry is wired to a fixed Windows PowerShell UIA helper that targets only a blank document and returns verified only after exact read-back. This is not evidence of a real Windows smoke test.
 - jarvis/orchestration.py now defines a fail-closed capability registry, approval gate, cancellation checkpoints and explicit evidence outcomes. Unit tests were added in tests/test_orchestration.py.
-- GUI dispatch now routes explicit Wikipedia/GitHub research and allowlisted app launches through the registered capability registry and task runtime. Stop/Esc cancellation is wired to chat generation, research and provider health checks; launch cancellation warns that the app may already have opened. Cancellation cannot forcibly interrupt an in-flight provider/network call; it discards the result at the next safe boundary.
-- CI result for the latest head is not confirmed. The latest branch has not been verified on a real Windows PC. Stop/Esc cancellation is wired into chat generation, research, and provider health-check workers at safe boundaries; in-flight provider/network calls are not forcibly interrupted. App-launch cancellation after launch begins is recorded as `action_unknown`, not `action_failed`, because the app may already have opened. Accepted launch requests still do not prove that a window became visible.
+- GUI dispatch now routes explicit Wikipedia/GitHub research, allow-listed app launch sequences, and the fixed Notepad text-entry workflow through the registered capability registry and task runtime. Stop/Esc cancellation is wired to chat generation, research and provider health checks; launch cancellation warns that the app may already have opened. Cancellation cannot forcibly interrupt an in-flight provider/network call; it discards the result at the next safe boundary.
+- Automated CI passed for commit `308460074dd7fb482ff238ba3654a46170d779ca` (Python source compilation, GUI launcher compilation, and the standard-library test suite). Later documentation commits require their own CI result. The feature branch has not been verified on a real Windows PC. Stop/Esc cancellation is wired into chat generation, research, and provider health-check workers at safe boundaries; in-flight provider/network calls are not forcibly interrupted. App-launch cancellation after launch begins is recorded as `action_unknown`, not `action_failed`, because the app may already have opened. Accepted launch requests still do not prove that a window became visible.
 - PR #2 remains draft/open/unmerged; do not install this branch as a final release.
 
 ## Definition of done
