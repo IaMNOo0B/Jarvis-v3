@@ -30,7 +30,7 @@ The launcher does not install third-party packages, download an AI model, or con
 
 Local databases and the virtual environment are ignored by Git. Back up user data before manual repository operations.
 
-**Verification note:** the batch menu is source-reviewed but has not yet been executed on a real Windows machine. It is not a signed installer, and this project remains a prototype.
+**Verification note:** GitHub Actions now compiles the Python sources, runs all 210 standard-library tests on both Ubuntu and Windows, and parses the fixed PowerShell UI Automation helper on Windows. This still does not launch the Tk GUI on the target PC or prove Notepad automation on an interactive desktop; run the manual smoke test before claiming desktop end-to-end support. This is not a signed installer, and the project remains a prototype.
 
 ## Start the GUI
 
