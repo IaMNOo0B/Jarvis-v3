@@ -19,7 +19,7 @@ def parse_app_launch_request(message: str) -> str | None:
     if len(words) == 2:
         if words[0] in {"open", "launch", "start"} and words[1] in {"notepad", "chrome"}:
             return words[1]
-        if words[0] in {"kholo", " kholo"} and words[1] in {"notepad", "chrome"}:
+        if words[0] in {"kholo"} and words[1] in {"notepad", "chrome"}:
             return words[1]
         if words[0] in {"notepad", "chrome"} and words[1] in {"kholo", "khol", "open"}:
             return words[0]
