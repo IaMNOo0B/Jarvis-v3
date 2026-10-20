@@ -12,6 +12,8 @@ import shutil
 import subprocess
 from typing import Protocol
 
+from jarvis.desktop_actions import is_supported_notepad_text
+
 
 @dataclass(frozen=True)
 class AppEntry:
@@ -135,7 +137,7 @@ class PowerShellUIAutomationBackend:
             return False
         if target_name != "blank document":
             return False
-        if text is not None and (not isinstance(text, str) or len(text) > 2000):
+        if text is not None and not is_supported_notepad_text(text):
             return False
         payload = json.dumps({
             "action": action,
