@@ -44,18 +44,26 @@ class TaskPlanner:
                 ("Only Notepad and Chrome are currently allow-listed.",),
             )
         lowered = text.casefold()
-        if lowered.startswith(("research wikipedia ", "wiki research ", "wikipedia par research ")):
-            query = text.split(" ", 2)[-1]
-            return TaskPlan(text, "research_wikipedia", (
-                PlanStep("fetch", "Query Wikipedia's fixed public search API.", False, "research_wikipedia"),
-                PlanStep("cite", "Show result titles, snippets, source URLs and evidence limitations.", False),
-            ))
-        if lowered.startswith(("research github ", "github research ", "github par research ")):
-            query = text.split(" ", 2)[-1]
-            return TaskPlan(text, "research_github", (
-                PlanStep("fetch", "Query GitHub's fixed public repository search API.", False, "research_github"),
-                PlanStep("cite", "Show repository links and metadata; do not claim code was audited.", False),
-            ))
+        prefixes = (
+            ("research wikipedia ", "research_wikipedia", "wikipedia"),
+            ("wiki research ", "research_wikipedia", "wikipedia"),
+            ("wikipedia par research ", "research_wikipedia", "wikipedia"),
+            ("research github ", "research_github", "github"),
+            ("github research ", "research_github", "github"),
+            ("github par research ", "research_github", "github"),
+        )
+        for prefix, intent, source in prefixes:
+            if lowered.startswith(prefix):
+                query = text[len(prefix):].strip()
+                if not query:
+                    return TaskPlan(text, "invalid_research", (), ("Add a topic after the research source.",))
+                return TaskPlan(
+                    text, intent,
+                    (
+                        PlanStep("fetch", f"Query {source.title()}'s fixed public search API.", False, intent),
+                        PlanStep("cite", "Show source URLs, bounded snippets and evidence limitations.", False),
+                    ),
+                )
         return TaskPlan(
             text, "chat",
             (PlanStep("answer", "Use the configured AI provider and relevant local reference material.", False),),
