@@ -36,3 +36,10 @@ This document records architectural ideas reviewed for JARVIS V3. External repos
 3. Build a self-healing repair workflow that produces isolated patches, runs tests, and can roll back; never silently rewrites protected policy.
 4. Add remote phone control only after authenticated pairing, replay protection, permission scopes, and clear device status are tested.
 5. Add golden end-to-end Windows receipts for desktop, voice, remote commands, credentials, upgrades, and secret scanning.
+
+## Automatic reflection integration — 2026-10-20
+
+- Added `jarvis/auto_learning.py` and tests. The GUI automatically records a compact task/outcome entry after each generated response and each allow-listed app-launch attempt; no manual `/experience` command is needed for this basic feedback loop.
+- Outcome labels deliberately describe only observable application evidence (`response_generated`, `provider_failed`, `action_accepted`, `action_failed`). A generated answer is not treated as proof that the user's goal was achieved; an accepted launch is not treated as proof the window became visible.
+- Natural polite English/Hinglish phrasing now routes to the existing allow-listed Notepad/Chrome launch flow. Every launch still requires an explicit per-request confirmation. Unknown applications and ambiguous sentences remain ordinary chat.
+- This is not yet autonomous self-training, repository polling, web search, Wikipedia ingestion, code repair, or self-upgrading. Those need separate reviewed capabilities, explicit network policy, evidence checks, rollback, and tests; this patch does not pretend they exist.
