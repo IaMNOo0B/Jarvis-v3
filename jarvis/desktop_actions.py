@@ -92,9 +92,9 @@ def parse_explicit_url_request(message: str) -> tuple[str, str] | None:
     if not text or len(text) > 2200:
         return None
     patterns = (
-        r"^(?:jarvis[, ]+)?(?:please\\s+)?(?:open|visit|go to|navigate to|browse to|kholo)\\s+(?P<url>https?://\\S+?)(?:\\s+(?:in|using|with)\\s+(?P<browser>google chrome|chrome|microsoft edge|ms edge|edge))?$",
-        r"^(?:jarvis[, ]+)?(?:please\\s+)?(?P<browser>google chrome|chrome|microsoft edge|ms edge|edge)\\s+(?:open|visit|to|go to|navigate to|kholo)\\s+(?P<url>https?://\\S+)$",
-        r"^(?:jarvis[, ]+)?(?:please\\s+)?open\\s+(?P<browser>google chrome|chrome|microsoft edge|ms edge|edge)\\s+(?:and\\s+)?(?:go to|navigate to|visit|open|to)\\s+(?P<url>https?://\\S+)$",
+        r"^(?:jarvis[, ]+)?(?:please\s+)?(?:open|visit|go to|navigate to|browse to|kholo)\s+(?P<url>https?://\S+?)(?:\s+(?:in|using|with)\s+(?P<browser>google chrome|chrome|microsoft edge|ms edge|edge))?$",
+        r"^(?:jarvis[, ]+)?(?:please\s+)?(?P<browser>google chrome|chrome|microsoft edge|ms edge|edge)\s+(?:open|visit|to|go to|navigate to|kholo)\s+(?P<url>https?://\S+)$",
+        r"^(?:jarvis[, ]+)?(?:please\s+)?open\s+(?P<browser>google chrome|chrome|microsoft edge|ms edge|edge)\s+(?:and\s+)?(?:go to|navigate to|visit|open|to)\s+(?P<url>https?://\S+)$",
     )
     for pattern in patterns:
         match = re.fullmatch(pattern, text, flags=re.IGNORECASE)
