@@ -14,6 +14,8 @@ jobs:
         with:
           python-version: "3.12"
       - name: Compile all Python sources
-        run: python -m compileall -q jarvis tests Start_JARVIS.pyw
+        run: python -m compileall -q jarvis tests
+      - name: Compile GUI launcher
+        run: python -m py_compile Start_JARVIS.pyw
       - name: Run standard-library test suite
         run: python -m unittest discover -s tests -v
