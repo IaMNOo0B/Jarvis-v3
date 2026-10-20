@@ -16,6 +16,8 @@ class ChatService:
             return "Available commands: /help, /exit. Desktop actions are not enabled yet."
         if intent.name == "exit":
             return "Goodbye, Sir."
+        if intent.name == "action_unavailable":
+            return "Desktop actions are not enabled yet; no action was performed."
         if self._provider is None:
             return "No AI provider is configured yet; desktop actions are not enabled yet. No action was performed."
         try:
