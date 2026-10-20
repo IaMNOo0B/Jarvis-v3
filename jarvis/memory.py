@@ -102,7 +102,7 @@ def parse_natural_remember_request(request: str) -> str | None:
         if lowered.startswith(prefix):
             content = text[len(prefix):].strip()
             # Do not mistake a reminder command for a memory request.
-            if content.casefold().startswith(("me to ", "me in ", "me at ", "me tomorrow ")):
+            if content.casefold().startswith(("to ", "me to ", "me in ", "me at ", "me tomorrow ")):
                 return None
             return content or None
     return None
