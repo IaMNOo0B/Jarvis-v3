@@ -10,8 +10,9 @@ class TaskPlannerTests(unittest.TestCase):
     def test_hinglish_allowlisted_launch_has_approval_and_verification_steps(self):
         plan = self.planner.plan("Sir Notepad kholo")
         self.assertEqual(plan.intent, "launch_allowlisted_app")
-        self.assertEqual([step.name for step in plan.steps], ["confirm", "execute", "verify"])
-        self.assertTrue(plan.steps[0].requires_approval)
+        self.assertEqual([step.name for step in plan.steps], ["authorize", "execute", "verify"])
+        self.assertTrue(plan.steps[1].requires_approval)
+        self.assertFalse(plan.steps[0].requires_approval)
 
     def test_explicit_wikipedia_research_is_planned(self):
         plan = self.planner.plan("Research Wikipedia artificial intelligence")
