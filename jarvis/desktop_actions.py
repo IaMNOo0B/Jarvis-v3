@@ -62,7 +62,7 @@ def parse_app_launch_request(message: str) -> str | None:
     wrappers = {
         "jarvis", "please", "can", "could", "you", "will", "would", "kindly",
         "zara", "sir", "for", "me", "now", "abhi", "the", "a", "an",
-        "app", "application", "desktop",
+        "app", "application", "desktop", "immediately", "right", "away",
     }
     words = [word for word in words if word not in wrappers]
     launch_verbs = {"open", "launch", "start", "run", "kholo", "khol", "kholna", "chalao", "shuru"}
@@ -109,10 +109,10 @@ def _find_executable(app: str) -> str | None:
 
     if os.name != "nt":
         return None
-    windows = os.environ.get("WINDIR", r"C:\\Windows")
+    windows = os.environ.get("WINDIR", os.path.join("C:", "Windows"))
     local = os.environ.get("LOCALAPPDATA", "")
-    program_files = os.environ.get("ProgramFiles", r"C:\\Program Files")
-    program_files_x86 = os.environ.get("ProgramFiles(x86)", r"C:\\Program Files (x86)")
+    program_files = os.environ.get("ProgramFiles", os.path.join("C:", "Program Files"))
+    program_files_x86 = os.environ.get("ProgramFiles(x86)", os.path.join("C:", "Program Files (x86)"))
     candidates = {
         "notepad": (os.path.join(windows, "System32", "notepad.exe"),),
         "calculator": (os.path.join(windows, "System32", "calc.exe"),),
