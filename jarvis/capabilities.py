@@ -34,6 +34,7 @@ def build_capability_registry(
         url = arguments.get("url")
         if not isinstance(browser, str) or browser.strip().casefold() not in {"chrome", "edge"}:
             return TaskOutcome("open_url", "blocked", "Browser is not on the allow-list.")
+        browser = browser.strip().casefold()
         if validate_http_url(url) is None:
             return TaskOutcome("open_url", "blocked", "URL rejected; provide one valid HTTP(S) URL without embedded credentials.")
         result = open_url_with_approval(browser, url, user_approved=True)
