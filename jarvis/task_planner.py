@@ -37,8 +37,8 @@ class TaskPlanner:
             return TaskPlan(
                 text, "launch_allowlisted_app",
                 (
-                    PlanStep("confirm", f"Ask Sir to approve launching {app.title()}.", True),
-                    PlanStep("execute", f"Launch allow-listed app {app.title()} without a shell.", True, "launch_app"),
+                    PlanStep("authorize", f"Treat Sir's explicit request to open {app.title()} as one-request authorization.", False),
+                    PlanStep("execute", f"Launch allow-listed app {app.title()} without a shell or another confirmation dialog.", True, "launch_app"),
                     PlanStep("verify", "Report the operating-system launch result; app visibility is not guaranteed.", False),
                 ),
                 ("Only Notepad and Chrome are currently allow-listed.",),
