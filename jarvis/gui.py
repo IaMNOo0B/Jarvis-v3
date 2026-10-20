@@ -16,6 +16,7 @@ from jarvis.task_planner import TaskPlanner
 from jarvis.research import PublicResearch, ResearchError
 from jarvis.research_archive import ResearchArchive
 from jarvis.activity import ActivityJournal
+from jarvis.task_receipts import TaskReceiptStore
 
 from jarvis.chat_service import ChatService
 from jarvis.knowledge_base import KnowledgeBase
@@ -46,6 +47,7 @@ class JarvisWindow:
         self.research = PublicResearch()
         self.research_archive = ResearchArchive()
         self.activity = ActivityJournal()
+        self.task_receipts = TaskReceiptStore()
         self._notified_reminders: set[int] = set()
 
         shell = ttk.Frame(root, padding=12)
@@ -224,6 +226,29 @@ class JarvisWindow:
             return True
         return False
 
+    def _handle_task_history_command(self, message: str) -> bool:
+        if message.strip().casefold() != "/tasks":
+            return False
+        try:
+            items = self.task_receipts.recent(limit=10)
+        except (OSError, ValueError):
+            self._append("JARVIS", "Task history could not be read; no records were deleted.")
+            return True
+        if not items:
+            self._append("JARVIS", "No task receipts recorded yet.")
+            return True
+        labels = {
+            "response_generated": "response generated; goal completion unverified",
+            "action_accepted": "OS accepted action; final state unverified",
+            "action_failed": "action failed",
+            "provider_failed": "provider failed",
+            "research_succeeded": "public-source lookup returned results",
+            "research_failed": "public-source lookup failed",
+        }
+        lines = [f"#{item['id']} · {item['created_at']} · {labels.get(item['outcome'], item['outcome'])} · {item['task']}" for item in items]
+        self._append("JARVIS", "Recent task receipts (observed outcome, not assumed success):\\n" + "\\n".join(lines))
+        return True
+
     def _handle_research_history_command(self, message: str) -> bool:
         if message.strip().casefold() != "/research-history":
             return False
@@ -391,6 +416,8 @@ class JarvisWindow:
             return
         if self._handle_research_history_command(message):
             return
+        if self._handle_task_history_command(message):
+            return
         plan = self.planner.plan(message)
         self._record_activity("task_plan", plan.intent, f"steps={len(plan.steps)}")
         if plan.intent == "invalid_research":
@@ -481,6 +508,11 @@ class JarvisWindow:
             return
         self._record_activity("desktop_launch", "accepted" if success else "failed")
         try:
+            receipt = self.task_receipts.record(task, "action_accepted" if success else "action_failed", evidence=detail)
+            self._record_activity("task_receipt", receipt["outcome"], f"id={receipt['id']}")
+        except (ValueError, OSError):
+            self._record_activity("task_receipt", "not_saved", "desktop result remains visible but receipt was not saved")
+        try:
             reflection = self.auto_learning.reflect(task, outcome="action_accepted" if success else "action_failed", evidence=detail)
             self._record_activity("automatic_reflection", reflection.outcome, f"episode={reflection.episode.episode_id}")
         except (ValueError, OSError):
@@ -495,6 +527,11 @@ class JarvisWindow:
         if self.closing:
             return
         failure = response.startswith(("The AI provider failed;", "The AI provider returned an empty response;", "An unexpected error occurred;"))
+        try:
+            receipt = self.task_receipts.record(task, "provider_failed" if failure else "response_generated", evidence="Provider response received; real-world goal completion is unverified." if not failure else "No usable provider response was returned.")
+            self._record_activity("task_receipt", receipt["outcome"], f"id={receipt['id']}")
+        except (ValueError, OSError):
+            self._record_activity("task_receipt", "not_saved", "chat result remains visible but receipt was not saved")
         try:
             reflection = self.auto_learning.reflect(task, outcome="provider_failed" if failure else "response_generated")
             self._record_activity("automatic_reflection", reflection.outcome, f"episode={reflection.episode.episode_id}")
@@ -524,9 +561,14 @@ class JarvisWindow:
     def _finish_research(self, success: bool, detail: str, task: str) -> None:
         if self.closing:
             return
-        outcome = "response_generated" if success else "provider_failed"
+        outcome = "research_succeeded" if success else "research_failed"
         try:
-            reflection = self.auto_learning.reflect(task, outcome=outcome, evidence="Public-source lookup completed." if success else "Research source unavailable.")
+            receipt = self.task_receipts.record(task, outcome, evidence="Public-source lookup returned a report; independent verification is not implied." if success else "Research source unavailable or failed.")
+            self._record_activity("task_receipt", receipt["outcome"], f"id={receipt['id']}")
+        except (ValueError, OSError):
+            self._record_activity("task_receipt", "not_saved", "research result remains visible but receipt was not saved")
+        try:
+            reflection = self.auto_learning.reflect(task, outcome="response_generated" if success else "provider_failed", evidence="Public-source lookup completed." if success else "Research source unavailable.")
             self._record_activity("automatic_reflection", reflection.outcome, f"episode={reflection.episode.episode_id}")
         except (ValueError, OSError):
             self._record_activity("automatic_reflection", "failed", "research outcome was not recorded")
