@@ -112,6 +112,18 @@ class CapabilityTests(unittest.TestCase):
         self.assertEqual(outcome.status, "blocked")
         opener.assert_not_called()
 
+    def test_notepad_text_entry_rejects_utf16_oversize_before_touching_backend(self):
+        backend = FakeUIAutomationBackend()
+        registry = build_capability_registry(self.research, ui_backend=backend)
+        result = run_capability(
+            "type_notepad_text",
+            {"target": "blank document", "text": "😀" * 1001},
+            registry=registry,
+            approved=True,
+        )
+        self.assertEqual(result.status, "blocked")
+        self.assertEqual(backend.calls, [])
+
     def test_notepad_text_entry_requires_approval(self):
         backend = FakeUIAutomationBackend()
         registry = build_capability_registry(self.research, ui_backend=backend)
