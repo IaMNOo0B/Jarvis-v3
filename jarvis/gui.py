@@ -554,16 +554,10 @@ class JarvisWindow:
 
         app_name = parse_app_launch_request(message)
         if app_name:
-            approved = messagebox.askyesno(
-                "Approve app launch",
-                f"Allow JARVIS to launch {app_name.title()} on this PC?",
-                parent=self.root,
-            )
-            if not approved:
-                self._append("JARVIS", "Cancelled. No app was launched.")
-                return
+            # An explicit, unambiguous request to open a fixed allow-listed local
+            # app is the per-request authorization. Do not add a repetitive modal.
             try:
-                self.task_receipts.record_step(message, f"launch {app_name}", "started", evidence="User approved the allowlisted app launch.")
+                self.task_receipts.record_step(message, f"launch {app_name}", "started", evidence="Sir explicitly requested an allow-listed local app launch.")
             except (ValueError, OSError):
                 self._record_activity("task_step_receipt", "not_saved", "launch still proceeds; step receipt could not be stored")
             token = self._begin_work()
