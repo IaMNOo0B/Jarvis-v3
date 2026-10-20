@@ -35,6 +35,12 @@ class TaskReceiptStoreTests(unittest.TestCase):
         self.assertNotIn("AIza1234567890123456789012345", item["task"])
         self.assertNotIn("ghp_abcdefghijklmnopqrstuvwxyz123456", item["evidence"])
 
+    def test_clear_removes_only_receipts(self):
+        self.store.record("task one", "response_generated")
+        self.store.record("task two", "provider_failed")
+        self.assertEqual(self.store.clear(), 2)
+        self.assertEqual(self.store.recent(), [])
+
     def test_bounds_task_and_evidence(self):
         with self.assertRaises(ValueError):
             self.store.record("x" * 4001, "response_generated")
