@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Mapping
 
-from jarvis.desktop_actions import APP_EXECUTABLES, launch_app_with_approval, open_url_with_approval, validate_http_url
+from jarvis.desktop_actions import APP_EXECUTABLES, is_supported_notepad_text, launch_app_with_approval, open_url_with_approval, validate_http_url
 from jarvis.desktop_automation import AppRegistry, PowerShellUIAutomationBackend, UIActionRequest, execute_ui_action
 from jarvis.orchestration import Capability, CapabilityRegistry, TaskOutcome
 from jarvis.research import PublicResearch
@@ -46,7 +46,7 @@ def build_capability_registry(
     def type_notepad_text(arguments: Mapping[str, object]) -> TaskOutcome:
         text = arguments.get("text")
         target = arguments.get("target")
-        if not isinstance(text, str) or not text.strip() or len(text) > 2000:
+        if not is_supported_notepad_text(text):
             return TaskOutcome("type_notepad_text", "blocked", "Text is missing or exceeds the supported 2000-character limit.")
         if target != "blank document":
             return TaskOutcome("type_notepad_text", "blocked", "Typing is restricted to a detected blank Notepad document.")
