@@ -30,6 +30,11 @@ class WindowsLauncherTests(unittest.TestCase):
         start_block = launcher.split(":start", 1)[1].split(":update", 1)[0]
         self.assertIn('".venv\\Scripts\\python.exe"', start_block)
         self.assertIn(" -m venv .venv", start_block)
+        self.assertIn('if not exist "Start_JARVIS.pyw" (', start_block)
+        self.assertIn('if not exist ".venv\\Scripts\\pythonw.exe" (', start_block)
+        launch_index = start_block.index('start "" ".venv\\Scripts\\pythonw.exe" "Start_JARVIS.pyw"')
+        self.assertLess(start_block.index('if not exist "Start_JARVIS.pyw" ('), launch_index)
+        self.assertLess(start_block.index('if not exist ".venv\\Scripts\\pythonw.exe" ('), launch_index)
         self.assertIn('start "" ".venv\\Scripts\\pythonw.exe" "Start_JARVIS.pyw"', start_block)
 
     def test_maintenance_menu_remains_available(self):
