@@ -1,10 +1,12 @@
 """Allow-listed Windows app launching; never launch arbitrary paths or shell commands."""
 
+import ipaddress
 import os
 import re
 import shutil
 import subprocess
 from dataclasses import dataclass
+from urllib.parse import urlsplit
 
 from jarvis.safety import ActionRegistry, ActionSpec, RiskLevel, SafetyGate
 
@@ -40,6 +42,117 @@ APP_EXECUTABLES = {
     "terminal": ("wt.exe",),
     "vs code": ("code.exe",),
 }
+
+
+def validate_http_url(value: object) -> str | None:
+    """Validate an explicit HTTP(S) URL before passing it to a browser process.
+
+    Only HTTP and HTTPS are allowed. URL user-info, whitespace/control
+    characters, backslashes, malformed hosts, and invalid ports are rejected.
+    Private/LAN hosts are not automatically blocked because the user supplies
+    the exact destination explicitly (for example, a local development server).
+    """
+    if not isinstance(value, str) or not value or len(value) > 2048:
+        return None
+    if any(ch.isspace() or ord(ch) < 32 or ord(ch) == 127 for ch in value) or "\\" in value:
+        return None
+    try:
+        parts = urlsplit(value)
+        if parts.scheme.casefold() not in {"http", "https"} or not parts.netloc:
+            return None
+        if parts.username is not None or parts.password is not None:
+            return None
+        hostname = parts.hostname
+        if not hostname:
+            return None
+        port = parts.port
+        if port is not None and not 1 <= port <= 65535:
+            return None
+        # Ensure that a non-IP hostname is syntactically valid and IDNA-encodable.
+        try:
+            ipaddress.ip_address(hostname)
+        except ValueError:
+            ascii_host = hostname.encode("idna").decode("ascii")
+            if len(ascii_host) > 253:
+                return None
+            labels = ascii_host.rstrip(".").split(".")
+            if not labels or any(
+                not re.fullmatch(r"[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?", label)
+                for label in labels
+            ):
+                return None
+    except (UnicodeError, ValueError):
+        return None
+    return value
+
+
+def parse_explicit_url_request(message: str) -> tuple[str, str] | None:
+    """Parse a direct request to open one explicit HTTP(S) URL in Chrome or Edge."""
+    text = message.strip()
+    if not text or len(text) > 2200:
+        return None
+    patterns = (
+        r"^(?:jarvis[, ]+)?(?:please\\s+)?(?:open|visit|go to|navigate to|browse to|kholo)\\s+(?P<url>https?://\\S+?)(?:\\s+(?:in|using|with)\\s+(?P<browser>google chrome|chrome|microsoft edge|ms edge|edge))?$",
+        r"^(?:jarvis[, ]+)?(?:please\\s+)?(?P<browser>google chrome|chrome|microsoft edge|ms edge|edge)\\s+(?:open|visit|to|go to|navigate to|kholo)\\s+(?P<url>https?://\\S+)$",
+        r"^(?:jarvis[, ]+)?(?:please\\s+)?open\\s+(?P<browser>google chrome|chrome|microsoft edge|ms edge|edge)\\s+(?:and\\s+)?(?:go to|navigate to|visit|open|to)\\s+(?P<url>https?://\\S+)$",
+    )
+    for pattern in patterns:
+        match = re.fullmatch(pattern, text, flags=re.IGNORECASE)
+        if not match:
+            continue
+        url = match.group("url")
+        safe_url = validate_http_url(url)
+        if safe_url is None:
+            return None
+        browser_value = (match.groupdict().get("browser") or "chrome").casefold()
+        browser = "edge" if "edge" in browser_value or browser_value == "ms edge" else "chrome"
+        return browser, safe_url
+    return None
+
+
+def open_url_in_browser(browser_name: str, url: str) -> LaunchResult:
+    """Open one explicitly supplied HTTP(S) URL in the fixed Chrome/Edge executable."""
+    browser = browser_name.strip().casefold()
+    safe_url = validate_http_url(url)
+    if browser not in {"chrome", "edge"}:
+        return LaunchResult(False, browser_name, "Browser is not on the allow-list.")
+    if safe_url is None:
+        return LaunchResult(False, browser, "URL rejected; only a valid HTTP(S) URL without embedded credentials is allowed.")
+    if os.name != "nt":
+        return LaunchResult(False, browser, "Browser navigation is supported only on Windows.")
+    executable = _find_executable(browser)
+    if not executable or not os.path.isfile(executable):
+        return LaunchResult(False, browser, f"{browser.title()} was not found on this PC.")
+    try:
+        subprocess.Popen([executable, safe_url], shell=False, close_fds=True)
+    except OSError:
+        return LaunchResult(False, browser, f"Windows could not open the URL in {browser.title()}.")
+    return LaunchResult(
+        True, browser,
+        f"Windows accepted the request to open the supplied URL in {browser.title()}; page load and page contents are not verified.",
+    )
+
+
+def open_url_with_approval(browser_name: str, url: str, *, user_approved: bool) -> LaunchResult:
+    """Open a validated URL only after an explicit per-request approval decision."""
+    browser = browser_name.strip().casefold()
+    if browser not in {"chrome", "edge"}:
+        return LaunchResult(False, browser_name, "Browser is not on the allow-list.")
+    safe_url = validate_http_url(url)
+    if safe_url is None:
+        return LaunchResult(False, browser, "URL rejected; only a valid HTTP(S) URL without embedded credentials is allowed.")
+    registry = ActionRegistry()
+    registry.register(ActionSpec(
+        name="open_explicit_url",
+        risk=RiskLevel.REVERSIBLE,
+        description=f"Open an explicitly supplied URL in {browser.title()}",
+        handler=lambda: open_url_in_browser(browser, safe_url),
+    ))
+    try:
+        result = SafetyGate().execute("open_explicit_url", registry, user_approved=user_approved)
+    except PermissionError:
+        return LaunchResult(False, browser, "Navigation blocked: explicit user intent/approval is required.")
+    return result
 
 
 def parse_app_launch_request(message: str) -> str | None:
