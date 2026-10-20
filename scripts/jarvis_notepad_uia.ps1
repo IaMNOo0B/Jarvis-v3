@@ -57,6 +57,23 @@ public static class JarvisNativeInput
     [DllImport("user32.dll", SetLastError = true)]
     private static extern uint SendInput(uint nInputs, INPUT[] pInputs, int cbSize);
 
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetForegroundWindow();
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
+
+    public static bool IsForegroundProcess(int expectedProcessId)
+    {
+        IntPtr foreground = GetForegroundWindow();
+        if (foreground == IntPtr.Zero)
+            return false;
+
+        uint processId;
+        GetWindowThreadProcessId(foreground, out processId);
+        return processId == (uint)expectedProcessId;
+    }
+
     public static bool SendUnicode(string value)
     {
         if (String.IsNullOrEmpty(value))
@@ -151,8 +168,14 @@ public static class JarvisNativeInput
         if ($blank.Count -eq 0) {
             throw "No blank Notepad document is available."
         }
+        $blank[0].Window.SetFocus()
+        Start-Sleep -Milliseconds 100
         $blank[0].Editor.SetFocus()
-        Start-Sleep -Milliseconds 200
+        Start-Sleep -Milliseconds 150
+        # Never send keystrokes if another process still owns the foreground window.
+        if (-not [JarvisNativeInput]::IsForegroundProcess([int]$blank[0].Window.Current.ProcessId)) {
+            throw "Notepad did not become the foreground application; no text was sent."
+        }
         if (-not [JarvisNativeInput]::SendUnicode($text)) {
             throw "Windows did not accept the complete text input."
         }
