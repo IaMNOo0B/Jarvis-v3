@@ -128,6 +128,15 @@ class DesktopAutomationContractTests(unittest.TestCase):
             with patch("jarvis.desktop_automation.subprocess.run", return_value=failed):
                 self.assertFalse(backend._invoke("type_text", "notepad", "blank document", "hello"))
 
+    def test_notepad_helper_uses_native_sized_input_union(self):
+        script = Path(__file__).resolve().parents[1] / "scripts" / "jarvis_notepad_uia.ps1"
+        source = script.read_text(encoding="utf-8")
+        self.assertIn("public MOUSEINPUT mi;", source)
+        self.assertIn("public KEYBDINPUT ki;", source)
+        self.assertIn("public UIntPtr dwExtraInfo;", source)
+        self.assertIn("Marshal.SizeOf(typeof(INPUT))", source)
+        self.assertIn("public static bool IsForegroundProcess", source)
+
     def test_registry_rejects_duplicate_apps(self):
         with self.assertRaises(ValueError):
             AppRegistry((AppEntry("Notepad", "notepad.exe", ("focus",)), AppEntry("notepad", "other.exe", ("focus",))))
