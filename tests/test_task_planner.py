@@ -1,5 +1,6 @@
 import unittest
 
+from jarvis.desktop_actions import APP_ALIASES
 from jarvis.task_planner import TaskPlanner, extract_research_query
 
 
@@ -13,6 +14,19 @@ class TaskPlannerTests(unittest.TestCase):
         self.assertEqual([step.name for step in plan.steps], ["authorize", "execute", "verify"])
         self.assertTrue(plan.steps[1].requires_approval)
         self.assertFalse(plan.steps[0].requires_approval)
+
+    def test_every_registered_app_alias_can_be_planned(self):
+        # Parser/planner coverage only; this never launches an application.
+        for canonical, aliases in APP_ALIASES.items():
+            for alias in aliases:
+                with self.subTest(app=canonical, alias=alias):
+                    plan = self.planner.plan(f"open {alias}")
+                    self.assertEqual(plan.intent, "launch_allowlisted_app")
+                    self.assertEqual([step.name for step in plan.steps], ["authorize", "execute", "verify"])
+
+    def test_launch_plan_does_not_claim_window_visibility_is_verified(self):
+        plan = self.planner.plan("open calculator")
+        self.assertTrue(any("does not prove" in item for item in plan.limitations))
 
     def test_explicit_wikipedia_research_is_planned(self):
         plan = self.planner.plan("Research Wikipedia artificial intelligence")
