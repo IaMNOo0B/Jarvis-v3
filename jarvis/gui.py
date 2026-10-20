@@ -13,7 +13,9 @@ from jarvis.learning import LearningStore
 from jarvis.auto_learning import AutomaticLearning
 from jarvis.self_healing import RepairLedger
 from jarvis.task_planner import TaskPlanner
-from jarvis.research import PublicResearch, ResearchError
+from jarvis.task_runtime import execute_plan
+from jarvis.capabilities import build_capability_registry
+from jarvis.research import PublicResearch, ResearchError, ResearchReport
 from jarvis.research_archive import ResearchArchive
 from jarvis.activity import ActivityJournal
 from jarvis.task_receipts import TaskReceiptStore
@@ -45,6 +47,7 @@ class JarvisWindow:
         self.repairs = RepairLedger()
         self.planner = TaskPlanner()
         self.research = PublicResearch()
+        self.capability_registry = build_capability_registry(self.research)
         self.research_archive = ResearchArchive()
         self.activity = ActivityJournal()
         self.task_receipts = TaskReceiptStore()
@@ -459,7 +462,15 @@ class JarvisWindow:
 
             def research_work():
                 try:
-                    report = self.research.search(source, query)
+                    runtime = execute_plan(
+                        plan,
+                        registry=self.capability_registry,
+                        arguments={"query": query},
+                    )
+                    outcome = runtime.capability_result
+                    if runtime.status != "verified" or outcome is None or not isinstance(outcome.value, ResearchReport):
+                        raise ResearchError("Registered research capability did not return a usable report.")
+                    report = outcome.value
                     try:
                         run_id = self.research_archive.save(report)
                         self._record_activity("research_archive", "saved", f"run_id={run_id}")
@@ -501,8 +512,17 @@ class JarvisWindow:
 
             def launch():
                 try:
-                    result = launch_app_with_approval(app_name, user_approved=True)
-                    event = (result.success, result.detail)
+                    runtime = execute_plan(
+                        plan,
+                        registry=self.capability_registry,
+                        arguments={"app": app_name},
+                        approved=True,
+                    )
+                    outcome = runtime.capability_result
+                    if runtime.status != "attempted" or outcome is None:
+                        event = (False, runtime.detail)
+                    else:
+                        event = (True, outcome.detail)
                 except Exception:
                     event = (False, "Unexpected launch error. No further action was taken.")
                 self._post_event("action", (event[0], event[1], message))
