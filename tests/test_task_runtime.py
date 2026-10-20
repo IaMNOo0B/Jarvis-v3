@@ -25,6 +25,16 @@ class TaskRuntimeTests(unittest.TestCase):
             ),
             requires_approval=True,
         ))
+        self.url_calls = []
+        self.registry.register(Capability(
+            "open_url",
+            lambda args: self.url_calls.append(args) or TaskOutcome(
+                "open_url", "attempted",
+                "Windows accepted the request to open the supplied URL; page load is not verified.",
+                "os_open_url_request_accepted",
+            ),
+            requires_approval=True,
+        ))
         self.registry.register(Capability(
             "research_wikipedia",
             lambda args: TaskOutcome("research_wikipedia", "verified", "Sources retrieved.", "test-source-url"),
@@ -47,6 +57,29 @@ class TaskRuntimeTests(unittest.TestCase):
         result = execute_plan(plan, registry=self.registry, arguments={"app": "notepad"}, approved=True)
         self.assertEqual(result.status, "attempted")
         self.assertEqual(len(self.calls), 1)
+
+    def test_explicit_url_plan_runs_only_registered_browser_handler(self):
+        plan = self.planner.plan("open https://example.com/path in Edge")
+        result = execute_plan(plan, registry=self.registry, approved=True)
+        self.assertEqual(result.status, "attempted")
+        self.assertEqual(
+            self.url_calls,
+            [{"browser": "edge", "url": "https://example.com/path"}],
+        )
+        self.assertEqual(action_event_for_runtime(result)[0], "action_accepted")
+
+    def test_malformed_url_plan_is_blocked_before_browser_handler(self):
+        plan = self.planner.plan("open https://example.com in Chrome")
+        bad_steps = tuple(
+            type(step)(step.name, step.description, step.requires_approval,
+                       step.action, step.target, "javascript:alert(1)")
+            if step.action == "open_url" else step
+            for step in plan.steps
+        )
+        bad_plan = type(plan)(plan.original_request, plan.intent, bad_steps, plan.limitations)
+        result = execute_plan(bad_plan, registry=self.registry, approved=True)
+        self.assertEqual(result.status, "blocked")
+        self.assertEqual(self.url_calls, [])
 
     def test_notepad_typing_runs_launch_then_verified_text_entry(self):
         plan = self.planner.plan("open Notepad and type Hello Sir")
