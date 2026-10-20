@@ -302,7 +302,7 @@ def launch_allowlisted_app(app_name: str) -> LaunchResult:
 
 def is_supported_notepad_text(value: object) -> bool:
     """Apply the same 2000 UTF-16-code-unit limit used by the Windows helper."""
-    if not isinstance(value, str) or not value.strip() or len(value) > 2000 or "\\x00" in value:
+    if not isinstance(value, str) or not value.strip() or len(value) > 2000 or "\x00" in value:
         return False
     try:
         utf16_units = len(value.encode("utf-16-le", errors="strict")) // 2
