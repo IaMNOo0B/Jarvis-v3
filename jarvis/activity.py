@@ -11,9 +11,9 @@ from typing import Any
 
 
 _SECRET_PATTERNS = (
-    re.compile(r"(?i)(api[_ -]?key|access[_ -]?token|refresh[_ -]?token|password|secret)(\\s*[:=]\\s*)([^\\s,;]+)"),
-    re.compile(r"(?i)\\b(AIza[0-9A-Za-z_-]{20,}|AQ\\.[0-9A-Za-z._-]{20,})\\b"),
-    re.compile(r"(?i)\\b(sk-or-v1-[0-9A-Za-z_-]{20,})\\b"),
+    re.compile(r"(?i)(api[_ -]?key|access[_ -]?token|refresh[_ -]?token|password|secret)(\s*[:=]\s*)([^\s,;]+)"),
+    re.compile(r"(?i)\b(AIza[0-9A-Za-z_-]{20,}|AQ\.[0-9A-Za-z._-]{20,})\b"),
+    re.compile(r"(?i)\b(sk-or-v1-[0-9A-Za-z_-]{20,})\b"),
 )
 
 
@@ -69,9 +69,9 @@ class ActivityJournal:
             existing = (existing + [row])[-self.max_entries:]
             temp = self.path.with_suffix(self.path.suffix + ".tmp")
             try:
-                with temp.open("w", encoding="utf-8", newline="\\n") as stream:
+                with temp.open("w", encoding="utf-8", newline="\n") as stream:
                     for item in existing:
-                        stream.write(json.dumps(item, ensure_ascii=False, separators=(",", ":")) + "\\n")
+                        stream.write(json.dumps(item, ensure_ascii=False, separators=(",", ":")) + "\n")
                 temp.replace(self.path)
             finally:
                 if temp.exists():
