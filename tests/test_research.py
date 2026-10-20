@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import patch
 
-from jarvis.research import PublicResearch, ResearchError, ResearchSource, _query_text
+from jarvis.research import PublicResearch, ResearchError, _get_json, _query_text
 
 
 class PublicResearchTests(unittest.TestCase):
@@ -33,6 +33,11 @@ class PublicResearchTests(unittest.TestCase):
     def test_rejects_unknown_research_source(self):
         with self.assertRaises(ValueError):
             PublicResearch().search("arbitrary-url", "anything")
+
+    def test_rejects_unapproved_hosts_before_network_access(self):
+        for url in ("http://en.wikipedia.org/api.php", "https://evil.test/api", "https://127.0.0.1/"):
+            with self.subTest(url=url), self.assertRaises(ResearchError):
+                _get_json(url)
 
     def test_api_failure_is_not_fabricated(self):
         with patch("jarvis.research._get_json", side_effect=ResearchError("offline")):
