@@ -1,13 +1,12 @@
-"""Minimal text-only entry point, wired to the configured local Ollama model."""
+"""Minimal text-only entry point using explicit local provider configuration."""
 
 from jarvis.chat_service import ChatService
 from jarvis.intents import parse_intent
-from jarvis.providers.ollama import OllamaProvider
+from jarvis.provider_config import build_provider
 
 
-# This configures a loopback-only provider. It does not download or launch Ollama.
-# If Ollama is stopped or the model is missing, ChatService reports the failure.
-_service = ChatService(provider=OllamaProvider())
+# Local-only provider construction; no cloud fallback and no desktop actions.
+_service = ChatService(provider=build_provider())
 
 
 def respond(text: str) -> str:
