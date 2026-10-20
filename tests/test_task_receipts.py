@@ -31,6 +31,16 @@ class TaskReceiptStoreTests(unittest.TestCase):
         self.assertEqual(item["outcome"], "action_unknown")
         self.assertIn("may have opened", item["evidence"])
 
+    def test_records_step_receipts_without_claiming_goal_success(self):
+        item = self.store.record_step("Open Notepad", "launch request", "attempted", evidence="OS accepted process launch; window visibility unverified")
+        self.assertEqual(item["outcome"], "attempted")
+        self.assertIn("visibility unverified", item["evidence"])
+        self.assertEqual(self.store.recent_steps()[0], item)
+
+    def test_step_receipts_validate_status(self):
+        with self.assertRaises(ValueError):
+            self.store.record_step("task", "step", "success")
+
     def test_redacts_obvious_secrets_from_task_and_evidence(self):
         item = self.store.record(
             "Use api_key=AIza1234567890123456789012345",
