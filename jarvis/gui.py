@@ -13,7 +13,7 @@ from jarvis.learning import LearningStore
 from jarvis.auto_learning import AutomaticLearning
 from jarvis.self_healing import RepairLedger
 from jarvis.task_planner import TaskPlanner, extract_research_query
-from jarvis.task_runtime import execute_plan
+from jarvis.task_runtime import action_event_for_runtime, execute_plan
 from jarvis.capabilities import build_capability_registry
 from jarvis.research import PublicResearch, ResearchError, ResearchReport
 from jarvis.research_archive import ResearchArchive
@@ -624,17 +624,10 @@ class JarvisWindow:
                         cancellation=token,
                     )
                     self._record_runtime_steps(message, runtime.step_results)
-                    if token.cancelled:
-                        detail = runtime.detail if runtime is not None else "The Notepad workflow may have changed the desktop."
-                        event = ("action_unknown", f"Stop requested during Notepad workflow. {detail} Inspect the desktop before retrying.")
-                    elif runtime.status == "verified":
-                        event = ("action_verified", runtime.detail)
-                    elif runtime.status == "partial":
-                        event = ("action_partial", runtime.detail)
-                    elif runtime.status == "unknown":
-                        event = ("action_unknown", runtime.detail)
-                    else:
-                        event = ("action_failed", runtime.detail)
+                    event = action_event_for_runtime(runtime)
+                    if event[0] == "cancelled":
+                        self._post_event("cancelled", message)
+                        return
                 except OperationCancelled:
                     self._post_event("cancelled", message)
                     return
@@ -733,15 +726,10 @@ class JarvisWindow:
                     )
                     self._record_runtime_steps(message, runtime.step_results)
                     outcome = runtime.capability_result
-                    if token.cancelled:
-                        detail = runtime.detail if runtime is not None else "An app launch may have occurred; check the desktop before retrying."
-                        event = ("action_unknown", f"Stop requested during launch sequence. {detail} Check the desktop before retrying.")
-                    elif runtime.status == "partial":
-                        event = ("action_partial", runtime.detail)
-                    elif runtime.status == "attempted" and outcome is not None:
-                        event = ("action_accepted", runtime.detail)
-                    else:
-                        event = ("action_failed", runtime.detail)
+                    event = action_event_for_runtime(runtime)
+                    if event[0] == "cancelled":
+                        self._post_event("cancelled", message)
+                        return
                 except OperationCancelled:
                     self._post_event("cancelled", message)
                     return
