@@ -17,7 +17,7 @@ Requirements: Windows, Python 3.12+, and Ollama installed and running with the c
 - Enter exactly `open notepad` or `open chrome` to request an app launch. JARVIS asks for confirmation first. It only reports that Windows accepted the launch request; it does not yet verify that the app became visible.
 - If startup fails, launch `python Start_JARVIS.pyw` from a terminal to see Python diagnostics. This fallback is optional, not the normal workflow.
 
-The GUI currently uses the local Ollama provider. Gemini provider construction is available in code when explicitly selected and a key is stored in Windows Credential Manager, but a provider-selection/key-entry UI has not been built yet.
+The GUI starts with local Ollama. To use Gemini on Windows, click **Save Gemini key…**, enter the key into the masked prompt, then choose **Google Gemini** and click **Apply**. The key is stored only in Windows Credential Manager; JARVIS does not probe the key before saving it and does not display it back. Use **Check AI status** to make a real generation request. A key may still be invalid, restricted, or out of quota; status testing is what checks whether the provider can actually respond. Never paste API keys into chat or source files.
 
 ## Design principles
 
