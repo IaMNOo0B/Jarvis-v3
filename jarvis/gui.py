@@ -376,7 +376,27 @@ class JarvisWindow:
     def _handle_help_command(self, message: str) -> bool:
         if message.strip().casefold() != "/help":
             return False
-        self._append("JARVIS", "Supported features and commands:\n- Normal messages: chat with the selected provider\n- Open allow-listed apps by name; chain up to five with 'and' for sequential launch. Use 'open Notepad and type Hello Sir' or 'type Hello Sir in Notepad' to enter text only into a detected blank Notepad document and verify exact read-back\n- Find/research/look up a topic: bounded public Wikipedia search; mention GitHub to search repository metadata\n- Open an explicit HTTP(S) URL in Chrome by default or Edge with 'open https://example.com in Edge'; only the supplied URL is opened, and page load/content are not verified\n- /tasks: recent task receipts\n- /clear-tasks: delete task receipts after confirmation\n- /research-history: recent archived research\n- Natural reminders: 'Remind me in 20 minutes to study' or 'Remind me tomorrow at 8:30 PM to study'; /remind TIME | MESSAGE, /reminders, /cancel-reminder ID\n- Natural memory: 'Remember that I prefer concise answers', 'What do you remember about me?', or 'Forget that I prefer concise answers' (deletion is confirmed); /remember TEXT, /memories, /forget ID, /forget-all\n- /experiences, /skills, /learn TRIGGER | INSTRUCTIONS, /approve-skill ID, /reject-skill ID\n- Check AI status: performs a real provider generation check\nSupported actions: allow-listed app launches, bounded multi-app sequences, explicit HTTP(S) URL opening, public research, and Notepad text entry into a detected blank document with exact read-back when Windows UI Automation is available. URL navigation only asks the browser to open the supplied address; it does not click, download or submit forms, and page load is unverified. The Notepad typing path requires Windows PowerShell and UI Automation; it has not had a real-Windows smoke test. Existing text is not replaced. Arbitrary-window typing, browser automation and broad desktop automation remain unsupported. Stop cannot forcibly interrupt an in-flight provider/network call; research is not independent fact verification; voice is not implemented.")
+        self._append("JARVIS", "Supported features and commands:\n- Normal messages: chat with the selected provider\n- Open allow-listed apps by name; chain up to five with 'and' for sequential launch. Use 'open Notepad and type Hello Sir' or 'type Hello Sir in Notepad' to enter text only into a detected blank Notepad document and verify exact read-back\n- Find/research/look up a topic: bounded public Wikipedia search; mention GitHub to search repository metadata\n- Open an explicit HTTP(S) URL in Chrome by default or Edge with 'open https://example.com in Edge'; only the supplied URL is opened, and page load/content are not verified\n- /tasks: recent task receipts\n- /clear-tasks: delete task receipts after confirmation\n- /research-history: recent archived research\n- Natural reminders: 'Remind me in 20 minutes to study' or 'Remind me tomorrow at 8:30 PM to study'; /remind TIME | MESSAGE, /reminders, /cancel-reminder ID\n- Natural memory: 'Remember that I prefer concise answers', 'What do you remember about me?', or 'Forget that I prefer concise answers' (deletion is confirmed); /remember TEXT, /memories, /forget ID, /forget-all\n- /experiences, /skills, /learn TRIGGER | INSTRUCTIONS, /approve-skill ID, /reject-skill ID\n- /repairs: inspect recent reviewable diagnostic proposals; nothing is auto-applied\n- Check AI status: performs a real provider generation check\nSupported actions: allow-listed app launches, bounded multi-app sequences, explicit HTTP(S) URL opening, public research, and Notepad text entry into a detected blank document with exact read-back when Windows UI Automation is available. URL navigation only asks the browser to open the supplied address; it does not click, download or submit forms, and page load is unverified. The Notepad typing path requires Windows PowerShell and UI Automation; it has not had a real-Windows smoke test. Existing text is not replaced. Arbitrary-window typing, browser automation and broad desktop automation remain unsupported. Stop cannot forcibly interrupt an in-flight provider/network call; research is not independent fact verification; voice is not implemented.")
+        return True
+
+    def _handle_repair_command(self, message: str) -> bool:
+        if message.strip().casefold() != "/repairs":
+            return False
+        try:
+            items = self.repairs.list_proposals(limit=10)
+        except Exception:
+            self._append("JARVIS", "Repair proposals could not be read. No code was changed.")
+            return True
+        if not items:
+            self._append("JARVIS", "No repair proposals are saved.")
+            return True
+        lines = ["Recent repair proposals (review only; nothing is auto-applied):"]
+        for item in items:
+            lines.append(f"#{item.repair_id} [{item.status.upper()}] · {item.created_at}")
+            lines.append(f"  Issue: {item.failure_summary[:400]}")
+            lines.append(f"  Proposed review: {item.proposed_change[:800]}")
+            lines.append(f"  Reference: {item.source_ref}")
+        self._append("JARVIS", "\n".join(lines))
         return True
 
     def _handle_task_history_command(self, message: str) -> bool:
@@ -592,6 +612,8 @@ class JarvisWindow:
         if self._handle_memory_command(message):
             return
         if self._handle_learning_command(message):
+            return
+        if self._handle_repair_command(message):
             return
         if self._handle_research_history_command(message):
             return
