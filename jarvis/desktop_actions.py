@@ -216,7 +216,7 @@ def parse_notepad_type_request(message: str) -> str | None:
     if explicitly_quoted:
         captured = captured[1:-1].strip()
     elif re.search(
-        r"\\b(?:then|and)\\s+(?:open|launch|start|run|visit|navigate|click|delete|send|submit|type|write)\\b",
+        r"\b(?:then|and)\s+(?:open|launch|start|run|visit|navigate|click|delete|send|submit|type|write)\b",
         captured,
         flags=re.IGNORECASE,
     ):
