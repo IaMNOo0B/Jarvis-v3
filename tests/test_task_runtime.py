@@ -90,6 +90,22 @@ class TaskRuntimeTests(unittest.TestCase):
         self.assertEqual([step.status for step in result.step_results], ["attempted", "verified"])
         self.assertEqual(result.evidence, "notepad_readback_exact_match")
 
+    def test_oversized_utf16_notepad_plan_is_blocked_before_launch(self):
+        plan = self.planner.plan("open Notepad and type hello")
+        bad_steps = tuple(
+            type(step)(
+                step.name, step.description, step.requires_approval,
+                step.action, step.target, "😀" * 1100,
+            )
+            if step.action == "type_notepad_text" else step
+            for step in plan.steps
+        )
+        bad_plan = type(plan)(plan.original_request, plan.intent, bad_steps, plan.limitations)
+        result = execute_plan(bad_plan, registry=self.registry, approved=True)
+        self.assertEqual(result.status, "blocked")
+        self.assertEqual(self.calls, [])
+        self.assertEqual(self.type_calls, [])
+
     def test_notepad_typing_failure_after_launch_is_partial_not_success(self):
         registry = CapabilityRegistry()
         launch_calls = []
