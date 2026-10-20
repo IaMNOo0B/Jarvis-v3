@@ -88,3 +88,83 @@ class ReminderStore:
     @staticmethod
     def _from_row(row: sqlite3.Row) -> Reminder:
         return Reminder(int(row["id"]), row["due_at"], row["message"], row["status"])
+
+
+def parse_natural_reminder(request: str, now: datetime | None = None) -> tuple[str, str] | None:
+    """Parse a small, explicit set of natural reminder phrasings without guessing.
+
+    Returns (timezone-aware ISO timestamp, message). Ambiguous clock-only times,
+    relative dates, and unsupported wording return None rather than inventing a
+    schedule. The GUI can then ask for a clearer time without saving anything.
+    """
+    import re
+    from datetime import timedelta
+
+    current = now or datetime.now().astimezone()
+    if current.tzinfo is None:
+        raise ValueError("Current time must include a timezone.")
+    text = request.strip()
+    if len(text) > 2200:
+        return None
+
+    prefix = r"(?:jarvis[, ]+)?(?:please )?remind me "
+    relative_patterns = (
+        re.compile(prefix + r"in (\d{1,5}) (minutes?|mins?|hours?|hrs?|days?) to (.+)", re.IGNORECASE),
+        re.compile(prefix + r"to (.+) in (\d{1,5}) (minutes?|mins?|hours?|hrs?|days?)", re.IGNORECASE),
+    )
+    units = {"minute": 1, "min": 1, "hour": 60, "hr": 60, "day": 1440}
+    for index, pattern in enumerate(relative_patterns):
+        match = pattern.fullmatch(text)
+        if not match:
+            continue
+        if index == 0:
+            amount, unit_text, message = int(match.group(1)), match.group(2).casefold(), match.group(3).strip()
+        else:
+            message, amount, unit_text = match.group(1).strip(), int(match.group(2)), match.group(3).casefold()
+        unit = unit_text.rstrip("s")
+        if unit.endswith("s"):
+            unit = unit[:-1]
+        if unit == "mins":
+            unit = "min"
+        if unit == "hrs":
+            unit = "hr"
+        multiplier = units.get(unit)
+        minutes = amount * multiplier if multiplier else 0
+        if amount < 1 or minutes > 30 * 24 * 60 or not message:
+            return None
+        due = current + timedelta(minutes=minutes)
+        return due.isoformat(timespec="seconds"), message
+
+    absolute = re.compile(
+        prefix + r"(?:(today|tomorrow) )?at (\d{1,2}(?::\d{2})?\s*(?:am|pm)?) to (.+)",
+        re.IGNORECASE,
+    ).fullmatch(text)
+    if not absolute:
+        return None
+    day_name, clock, message = absolute.group(1), absolute.group(2).strip(), absolute.group(3).strip()
+    if not message:
+        return None
+    time_match = re.fullmatch(r"(\d{1,2})(?::(\d{2}))?\s*(am|pm)?", clock, re.IGNORECASE)
+    if not time_match:
+        return None
+    hour = int(time_match.group(1))
+    minute = int(time_match.group(2) or "0")
+    meridiem = (time_match.group(3) or "").casefold()
+    if minute > 59:
+        return None
+    if meridiem:
+        if not 1 <= hour <= 12:
+            return None
+        hour = hour % 12 + (12 if meridiem == "pm" else 0)
+    elif time_match.group(2) is None or not 0 <= hour <= 23:
+        # A bare "at 8" is ambiguous; require 8 AM/PM or 08:00/20:00.
+        return None
+
+    due = current.replace(hour=hour, minute=minute, second=0, microsecond=0)
+    if day_name and day_name.casefold() == "tomorrow":
+        due += timedelta(days=1)
+    elif day_name and due <= current:
+        return None
+    elif not day_name and due <= current:
+        due += timedelta(days=1)
+    return due.isoformat(timespec="seconds"), message
