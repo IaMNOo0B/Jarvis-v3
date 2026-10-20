@@ -63,7 +63,7 @@ Sir types one natural-language message in the JARVIS window. JARVIS classifies t
 
 ### Gate B — Desktop vertical slice
 - A narrow Windows-only PowerShell UI Automation backend is wired behind the adapter for Notepad text entry into a detected blank document; input is passed as JSON over stdin to a fixed script, with `shell=False` and a bounded helper timeout. A registered read-only preflight checks that Windows and the fixed PowerShell helper are available before it launches Notepad.
-- Unit tests cover approval gating, adapter payload/allow-list limits, partial outcomes and exact read-back contract. Still run the real Windows smoke test: detect Notepad, focus a blank document, type a harmless string, read back document text, and capture the actual result.
+- Unit tests cover approval gating, adapter payload/allow-list limits, partial outcomes and exact read-back contract. `scripts/smoke_test_notepad_uia.py` now provides a manual, confirmation-gated real-Windows test: open one blank Notepad document, run the script, type `RUN`, and record its exact read-back result. It has not yet been run on real Windows.
 - An explicit-URL-only navigation capability is wired for allow-listed Chrome/Edge; test only navigation to the exact user-supplied HTTP(S) URL and report the process launch as attempted, not page-verified. Never infer arbitrary downloads, credentials, clicks or form submissions.
 - Run real Windows smoke tests; fake adapters remain unit tests, not proof of desktop support.
 
