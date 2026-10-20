@@ -33,6 +33,10 @@ class DesktopLaunchTests(unittest.TestCase):
     def test_explicit_notepad_text_parser_supports_english_hinglish_and_quoted_text(self):
         self.assertEqual(parse_notepad_type_request("open Notepad and type Hello Sir"), "Hello Sir")
         self.assertEqual(parse_notepad_type_request('type "Hello Sir" in Notepad'), "Hello Sir")
+        self.assertEqual(
+            parse_notepad_type_request('open Notepad and type "hello then open Chrome"'),
+            "hello then open Chrome",
+        )
         self.assertEqual(parse_notepad_type_request("Notepad kholo aur likho Assalam o alaikum"), "Assalam o alaikum")
 
     def test_notepad_text_parser_fails_closed_on_empty_ambiguous_or_oversized_text(self):
