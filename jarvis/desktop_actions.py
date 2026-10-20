@@ -207,9 +207,22 @@ def parse_notepad_type_request(message: str) -> str | None:
             break
     if captured is None:
         return None
-    if len(captured) >= 2 and captured[0] == captured[-1] and captured[0] in {"'", '"'}:
-        captured = captured[1:-1]
     captured = captured.strip()
+    explicitly_quoted = (
+        len(captured) >= 2
+        and captured[0] == captured[-1]
+        and captured[0] in {"'", '"'}
+    )
+    if explicitly_quoted:
+        captured = captured[1:-1].strip()
+    elif re.search(
+        r"\\b(?:then|and)\\s+(?:open|launch|start|run|visit|navigate|click|delete|send|submit|type|write)\\b",
+        captured,
+        flags=re.IGNORECASE,
+    ):
+        # Do not absorb a second apparent command into a typing payload. The
+        # user can quote the intended literal text to disambiguate it.
+        return None
     if not captured or len(captured) > 2000:
         return None
     return captured
