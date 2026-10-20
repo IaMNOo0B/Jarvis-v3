@@ -17,14 +17,16 @@ The GUI routes supported app-launch, bounded multi-app launch, blank-Notepad tex
 
 ## One-click Windows control
 
-Use **`JARVIS.bat`** as the only setup/control entry point. It opens one menu for:
-1. Start JARVIS (creates the Python environment on first run if needed).
+Use **`JARVIS.bat`** as the normal launch entry point. **Double-click it and JARVIS starts automatically**—there is no menu choice required for everyday startup. On first launch, it finds Python 3.12+, creates the private `.venv`, checks Tkinter and SQLite, then opens the GUI. Once the environment exists, double-clicking the same file launches the GUI directly.
+
+For maintenance, run `JARVIS.bat --menu` from a terminal or create a shortcut with that argument. The control menu offers:
+1. Start JARVIS.
 2. First-time setup or environment repair checks.
 3. Safe update (only on a clean Git checkout; fast-forward only).
 4. Diagnostics for Python, Git, local environment, and Ollama.
 5. Exit.
 
-The menu checks Python 3.12+, Tkinter, and SQLite. It does not install third-party packages, download an AI model, or configure cloud credentials automatically. Ollama and the configured model remain separate prerequisites for local AI chat. Updates never reset or force-overwrite local changes.
+The launcher does not install third-party packages, download an AI model, or configure cloud credentials automatically. Ollama and the configured model remain separate prerequisites for local AI chat. Updates never reset or force-overwrite local changes.
 
 Local databases and the virtual environment are ignored by Git. Back up user data before manual repository operations.
 
@@ -34,8 +36,8 @@ Local databases and the virtual environment are ignored by Git. Back up user dat
 
 Requirements: Windows, Python 3.12+, and Ollama installed and running with the configured model available. No Python packages are required by this project.
 
-- Clone or download this repository.
-- Double-click `Start_JARVIS.pyw` to open the GUI without a console window.
+- Clone or download this repository, then double-click `JARVIS.bat`. This is the normal one-double-click entry point and bootstraps the private Python environment on first run.
+- `Start_JARVIS.pyw` is an optional direct GUI launcher; it does not perform the first-run environment setup.
 - The default provider is local Ollama with `qwen2.5:7b-instruct-q4_K_M`; obtain the model separately in Ollama before first use.
 - Use **Check AI status** for a real generation check.
 - Ask naturally, e.g. `Can you please open Notepad for me?`, `open Notepad and Calculator`, `open Notepad and type Hello Sir`, `type Hello Sir in Notepad`, `open the calculator`, `launch Visual Studio Code`, `Jarvis, zara Chrome kholo`, or `open https://example.com in Edge`. Explicit requests to open allow-listed apps no longer need a separate confirmation popup. Supported apps are Notepad, Chrome, Edge, Calculator, File Explorer, Task Manager, Paint, Windows Terminal, and VS Code. JARVIS reports that Windows accepted app-launch requests; app visibility is not verified. The Notepad typing path is restricted to a detected blank document and reports verified only after exact text read-back. A read-only preflight checks that Windows and the fixed PowerShell helper are available before opening Notepad. It requires Windows PowerShell and UI Automation support; no real-Windows smoke test has yet been recorded. Supplied Notepad text and explicit browser URLs are omitted from durable task/learning receipts (both are still visible in the live GUI transcript). Unknown apps and arbitrary window typing are not supported. Explicit HTTP(S) URLs can be opened in Chrome (default) or Edge; JARVIS reports only that Windows accepted the browser-open request, not that the page loaded. It will not click page elements, download files, or submit forms as part of this command.
