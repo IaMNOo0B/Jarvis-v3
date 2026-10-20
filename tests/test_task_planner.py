@@ -1,6 +1,6 @@
 import unittest
 
-from jarvis.desktop_actions import APP_ALIASES
+from jarvis.desktop_actions import APP_ALIASES, parse_app_launch_batch
 from jarvis.task_planner import TaskPlanner, extract_research_query
 
 
@@ -23,6 +23,23 @@ class TaskPlannerTests(unittest.TestCase):
                     plan = self.planner.plan(f"open {alias}")
                     self.assertEqual(plan.intent, "launch_allowlisted_app")
                     self.assertEqual([step.name for step in plan.steps], ["authorize", "execute", "verify"])
+
+    def test_multi_app_request_creates_ordered_launch_steps(self):
+        plan = self.planner.plan("open Notepad and Calculator")
+        self.assertEqual(plan.intent, "launch_allowlisted_apps")
+        launch_steps = [step for step in plan.steps if step.action == "launch_app"]
+        self.assertEqual([step.target for step in launch_steps], ["notepad", "calculator"])
+        self.assertTrue(all(step.requires_approval for step in launch_steps))
+        self.assertEqual(parse_app_launch_batch("open Notepad and open Calculator"), ("notepad", "calculator"))
+
+    def test_multi_app_request_accepts_hinglish_and_bare_second_alias(self):
+        self.assertEqual(parse_app_launch_batch("Notepad kholo aur Calculator kholo"), ("notepad", "calculator"))
+        self.assertEqual(parse_app_launch_batch("open Notepad and Calculator"), ("notepad", "calculator"))
+
+    def test_mixed_purpose_and_duplicate_launch_batches_fail_closed(self):
+        self.assertIsNone(parse_app_launch_batch("open Notepad and type hello"))
+        self.assertIsNone(parse_app_launch_batch("open Notepad and open Notepad"))
+        self.assertEqual(self.planner.plan("open Notepad and type hello").intent, "chat")
 
     def test_launch_plan_does_not_claim_window_visibility_is_verified(self):
         plan = self.planner.plan("open calculator")
