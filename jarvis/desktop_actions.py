@@ -93,7 +93,7 @@ def parse_app_launch_batch(message: str) -> tuple[str, ...] | None:
     text = message.strip()
     if not text or len(text) > 240:
         return None
-    parts = re.split(r"\\s+(?:and\\s+then|and|then|aur)\\s+", text, flags=re.IGNORECASE)
+    parts = re.split(r"\s+(?:and\\s+then|and|then|aur)\\s+", text, flags=re.IGNORECASE)
     if len(parts) < 2 or len(parts) > 5:
         return None
 
