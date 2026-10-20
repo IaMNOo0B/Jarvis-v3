@@ -306,6 +306,14 @@ class JarvisWindow:
             "research_failed": "public-source lookup failed",
         }
         lines = [f"#{item['id']} · {item['created_at']} · {labels.get(item['outcome'], item['outcome'])} · {item['task']}" for item in items]
+        try:
+            steps = self.task_receipts.recent_steps(limit=10)
+        except (OSError, ValueError):
+            steps = []
+        if steps:
+            lines.append("")
+            lines.append("Recent execution steps (not goal-success claims):")
+            lines.extend(f"  - {item['created_at']} · {item['step']} · {item['outcome']} · {item['evidence']}" for item in steps)
         self._append("JARVIS", "Recent task receipts (observed outcome, not assumed success):\n" + "\n".join(lines))
         return True
 
@@ -620,7 +628,7 @@ class JarvisWindow:
         activity_status = {"action_accepted": "accepted", "action_failed": "failed", "action_unknown": "unknown"}.get(outcome, "failed")
         self._record_activity("desktop_launch", activity_status)
         try:
-            self.task_receipts.record_step(task, "launch allowlisted app", outcome, evidence=detail)
+            self.task_receipts.record_step(task, "launch allowlisted app", {"action_accepted": "attempted", "action_failed": "failed", "action_unknown": "unknown"}.get(outcome, "failed"), evidence=detail)
         except (ValueError, OSError):
             self._record_activity("task_step_receipt", "not_saved", "launch outcome remains visible but step receipt was not saved")
         try:
