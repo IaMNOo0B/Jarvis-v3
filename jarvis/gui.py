@@ -87,7 +87,7 @@ class JarvisWindow:
         self.send_button.pack(side="right")
         self.root.bind("<Escape>", self._escape_stop)
         ttk.Label(shell, text="Stop / Esc cancels at safe boundaries. Desktop actions are limited to explicit allow-listed requests. No microphone is active.").pack(anchor="w", pady=(8, 0))
-        self._append("JARVIS", "Ready. Ask a question or use /help. Try “open Notepad” or “Notepad kholo” to request an approved app launch.")
+        self._append("JARVIS", "Ready. Ask a question or use /help. Try “open Notepad”, “open Notepad and Calculator”, or “open Notepad and type Hello Sir”.")
         self.entry.focus_set()
         self.root.protocol("WM_DELETE_WINDOW", self.close)
         self.root.after(40, self._drain_events)
@@ -376,7 +376,7 @@ class JarvisWindow:
     def _handle_help_command(self, message: str) -> bool:
         if message.strip().casefold() != "/help":
             return False
-        self._append("JARVIS", "Supported features and commands:\n- Normal messages: chat with the selected provider\n- Open Notepad, Chrome, Edge, Calculator, File Explorer, Task Manager, Paint, Windows Terminal, or VS Code using natural wording; explicit local launch requests do not need a second confirmation\n- Find/research/look up a topic: bounded public Wikipedia search; mention GitHub to search repository metadata\n- /tasks: recent task receipts\n- /clear-tasks: delete task receipts after confirmation\n- /research-history: recent archived research\n- Natural reminders: 'Remind me in 20 minutes to study' or 'Remind me tomorrow at 8:30 PM to study'; /remind TIME | MESSAGE, /reminders, /cancel-reminder ID\n- Natural memory: 'Remember that I prefer concise answers', 'What do you remember about me?', or 'Forget that I prefer concise answers' (deletion is confirmed); /remember TEXT, /memories, /forget ID, /forget-all\n- /experiences, /skills, /learn TRIGGER | INSTRUCTIONS, /approve-skill ID, /reject-skill ID\n- Check AI status: performs a real provider generation check\nLimitations: only fixed allow-listed app launch is supported; typing into arbitrary windows, browser automation, and complex multi-step desktop tasks still need a live Windows UI Automation backend. Stop cannot forcibly interrupt an in-flight provider/network call; research is not independent fact verification; voice is not implemented.")
+        self._append("JARVIS", "Supported features and commands:\n- Normal messages: chat with the selected provider\n- Open Notepad, Chrome, Edge, Calculator, File Explorer, Task Manager, Paint, Windows Terminal, or VS Code using natural wording; explicit local launch requests do not need a second confirmation\n- Find/research/look up a topic: bounded public Wikipedia search; mention GitHub to search repository metadata\n- /tasks: recent task receipts\n- /clear-tasks: delete task receipts after confirmation\n- /research-history: recent archived research\n- Natural reminders: 'Remind me in 20 minutes to study' or 'Remind me tomorrow at 8:30 PM to study'; /remind TIME | MESSAGE, /reminders, /cancel-reminder ID\n- Natural memory: 'Remember that I prefer concise answers', 'What do you remember about me?', or 'Forget that I prefer concise answers' (deletion is confirmed); /remember TEXT, /memories, /forget ID, /forget-all\n- /experiences, /skills, /learn TRIGGER | INSTRUCTIONS, /approve-skill ID, /reject-skill ID\n- Check AI status: performs a real provider generation check\nSupported actions: allow-listed app launches, bounded multi-app sequences, public research, and Notepad text entry into a detected blank document with exact read-back when Windows UI Automation is available. Limitations: arbitrary-window typing, browser automation, and broad desktop automation remain unsupported; the Notepad path has not yet had a real-Windows smoke test. Stop cannot forcibly interrupt an in-flight provider/network call; research is not independent fact verification; voice is not implemented.")
         return True
 
     def _handle_task_history_command(self, message: str) -> bool:
@@ -780,11 +780,11 @@ class JarvisWindow:
         if self.closing:
             return
         activity_status = {"action_verified": "verified", "action_accepted": "accepted", "action_failed": "failed", "action_partial": "partial", "action_unknown": "unknown"}.get(outcome, "failed")
-        self._record_activity("desktop_launch", activity_status)
+        self._record_activity("desktop_action", activity_status)
         try:
             self.task_receipts.record_step(task, "desktop action sequence", {"action_verified": "verified", "action_accepted": "attempted", "action_failed": "failed", "action_partial": "partial", "action_unknown": "unknown"}.get(outcome, "failed"), evidence=detail)
         except (ValueError, OSError):
-            self._record_activity("task_step_receipt", "not_saved", "launch outcome remains visible but step receipt was not saved")
+            self._record_activity("task_step_receipt", "not_saved", "desktop action outcome remains visible but step receipt was not saved")
         try:
             receipt = self.task_receipts.record(task, outcome, evidence=detail)
             self._record_activity("task_receipt", receipt["outcome"], f"id={receipt['id']}")
