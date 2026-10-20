@@ -95,3 +95,10 @@ Every new study gets: name, canonical URL/source, date checked, license, mechani
 - **Research archive:** `jarvis/research_archive.py` persists explicit research query, UTC save time, source title, HTTPS URL, snippet, source type, and limitations in SQLite. The GUI archives results and `/research-history` displays the last ten runs. It does not treat research text as executable instructions.
 - **Network guard:** research uses only the fixed Wikipedia and GitHub API host allowlist, bounded response size/timeouts, and blocks redirects. It never accepts an arbitrary URL as a fetch target.
 - **Still not a full autonomous research scout:** no scheduled background scans, broad web crawling, license/security audit, repository cloning, automatic code modification, or full original 258-entry verbatim import is claimed.
+
+## Task receipt implementation — 2026-10-20
+
+- Added `jarvis/task_receipts.py`: bounded SQLite records for observed outcomes, UTC timestamps, evidence labels, and obvious API-key/token redaction. The record vocabulary distinguishes a generated answer, accepted launch request, provider failure, and research lookup outcome; it cannot claim the user's real-world goal succeeded.
+- Connected GUI chat, research, and allow-listed launch completion handlers to the receipt store. Added `/tasks` to display the ten latest receipts and their limitations.
+- Added `tests/test_task_receipts.py` for persistence, validation, field bounds, and secret redaction.
+- **Verification status:** source and tests have been committed to the draft PR branch, but a CI run for the newest commit has not yet been confirmed. Windows GUI execution is unverified.
