@@ -147,6 +147,41 @@ class TaskRuntimeTests(unittest.TestCase):
         self.assertEqual(launch_calls, [])
         self.assertEqual([step.status for step in result.step_results], ["failed", "skipped", "skipped"])
 
+    def test_failed_launch_after_successful_preflight_is_not_misreported_as_partial(self):
+        registry = CapabilityRegistry()
+        launch_calls = []
+        registry.register(Capability(
+            "preflight_notepad_uia",
+            lambda args: TaskOutcome(
+                "preflight_notepad_uia", "verified", "Helper available.",
+                "powershell_uia_helper_available",
+            ),
+            requires_approval=False,
+        ))
+        registry.register(Capability(
+            "launch_app",
+            lambda args: launch_calls.append(args["app"]) or TaskOutcome(
+                "launch_app", "failed", "Notepad was not found on this PC.",
+            ),
+            requires_approval=True,
+        ))
+        registry.register(Capability(
+            "type_notepad_text",
+            lambda args: TaskOutcome(
+                "type_notepad_text", "verified", "Read-back matched.",
+                "notepad_readback_exact_match",
+            ),
+            requires_approval=True,
+        ))
+        result = execute_plan(
+            self.planner.plan("open Notepad and type Hello Sir"),
+            registry=registry, approved=True,
+        )
+        self.assertEqual(result.status, "failed")
+        self.assertEqual(launch_calls, ["notepad"])
+        self.assertEqual([step.status for step in result.step_results], ["verified", "failed", "skipped"])
+        self.assertNotIn("Partial execution", result.detail)
+
     def test_notepad_typing_failure_after_launch_is_partial_not_success(self):
         registry = CapabilityRegistry()
         launch_calls = []
