@@ -52,7 +52,9 @@ class TaskPlannerTests(unittest.TestCase):
     def test_mixed_purpose_and_duplicate_launch_batches_fail_closed(self):
         self.assertIsNone(parse_app_launch_batch("open Notepad and type hello"))
         self.assertIsNone(parse_app_launch_batch("open Notepad and open Notepad"))
-        self.assertEqual(self.planner.plan("open Notepad and type hello").intent, "chat")
+        text_plan = self.planner.plan("open Notepad and type hello")
+        self.assertEqual(text_plan.intent, "notepad_type_text")
+        self.assertEqual(text_plan.steps[2].input_text, "hello")
 
     def test_launch_plan_does_not_claim_window_visibility_is_verified(self):
         plan = self.planner.plan("open calculator")
