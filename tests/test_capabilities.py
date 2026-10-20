@@ -46,7 +46,7 @@ class CapabilityTests(unittest.TestCase):
     def test_only_explicit_capabilities_registered(self):
         self.assertEqual(
             set(self.registry._items),
-            {"launch_app", "type_notepad_text", "research_wikipedia", "research_github"},
+            {"launch_app", "open_url", "type_notepad_text", "research_wikipedia", "research_github"},
         )
 
     def test_research_is_bounded_and_returns_source_evidence(self):
@@ -82,6 +82,35 @@ class CapabilityTests(unittest.TestCase):
             outcome = run_capability("launch_app", {"app": "powershell"}, registry=self.registry, approved=True)
         self.assertEqual(outcome.status, "blocked")
         launch.assert_not_called()
+
+    def test_open_url_capability_requires_approval(self):
+        outcome = run_capability(
+            "open_url", {"browser": "chrome", "url": "https://example.com"},
+            registry=self.registry,
+        )
+        self.assertEqual(outcome.status, "approval_required")
+
+    def test_open_url_capability_uses_validated_allowlisted_browser(self):
+        with patch(
+            "jarvis.capabilities.open_url_with_approval",
+            return_value=LaunchResult(True, "edge", "Windows accepted URL request."),
+        ) as opener:
+            outcome = run_capability(
+                "open_url", {"browser": " edge ", "url": "https://example.com/path"},
+                registry=self.registry, approved=True,
+            )
+        self.assertEqual(outcome.status, "attempted")
+        self.assertEqual(outcome.evidence, "os_open_url_request_accepted")
+        opener.assert_called_once_with("edge", "https://example.com/path", user_approved=True)
+
+    def test_open_url_capability_rejects_invalid_scheme_without_browser_launch(self):
+        with patch("jarvis.capabilities.open_url_with_approval") as opener:
+            outcome = run_capability(
+                "open_url", {"browser": "chrome", "url": "javascript:alert(1)"},
+                registry=self.registry, approved=True,
+            )
+        self.assertEqual(outcome.status, "blocked")
+        opener.assert_not_called()
 
     def test_notepad_text_entry_requires_approval(self):
         backend = FakeUIAutomationBackend()
