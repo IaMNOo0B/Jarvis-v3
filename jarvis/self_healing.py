@@ -9,6 +9,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timezone
 import sqlite3
+from typing import ContextManager
+
+from jarvis.sqlite_utils import sqlite_connection
 from pathlib import Path
 import re
 
@@ -91,11 +94,8 @@ class RepairLedger:
                 created_at TEXT NOT NULL
             )""")
 
-    def _connect(self) -> sqlite3.Connection:
-        db = sqlite3.connect(self.database_path)
-        db.row_factory = sqlite3.Row
-        db.execute("PRAGMA foreign_keys = ON")
-        return db
+    def _connect(self) -> ContextManager[sqlite3.Connection]:
+        return sqlite_connection(self.database_path, timeout=5.0, foreign_keys=True)
 
     @staticmethod
     def _proposal(row: sqlite3.Row) -> RepairProposal:
