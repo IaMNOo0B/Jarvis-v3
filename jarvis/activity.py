@@ -77,7 +77,8 @@ class ActivityJournal:
                 if temp.exists():
                     temp.unlink()
 
-    def recent(self, limit: int = 50) -> list[dict[str, Any]]:
+    def recent(self, limit: int | None = None) -> list[dict[str, Any]]:
+        limit = min(50, self.max_entries) if limit is None else limit
         if not 1 <= limit <= self.max_entries:
             raise ValueError("limit must be between 1 and max_entries.")
         with self._lock:
