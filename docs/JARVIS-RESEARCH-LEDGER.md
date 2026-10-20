@@ -54,11 +54,11 @@ The submitted ledger covers these named collections and numbered studies. Its fu
 | Capability | V3 status at import | Evidence required to advance |
 |---|---|---|
 | Local text chat/provider contract | Prototype exists | tests + provider-specific integration |
-| Outcome history | Basic automatic episode recording exists | verify redaction, outcome semantics and GUI integration |
+| Outcome history | Implemented as basic automatic, evidence-labelled episode recording; GUI event payload fix included in commit `e216e36` | CI run 39432151659 passed; real Windows GUI run still open |
 | Skill proposals | Text-only review path exists | automatic proposal quality tests; permission isolation |
 | Natural-language general action orchestration | Incomplete | intent/plan/execute/postcondition tests |
-| Self-healing code changes | Not implemented | isolated workspace, tests, approval, rollback receipts |
-| Knowledge ingestion/retrieval | Not implemented at import | ingestion/index/retrieval/deletion tests |
+| Self-healing | Repair proposal/verification/review ledger implemented in `jarvis/self_healing.py`; no automatic code editing or rollback executor | CI run 39432151659 passed; isolated patch executor, real test runner, backup/rollback and Windows verification remain open |
+| Local knowledge retrieval | Bounded lexical search across local docs/knowledge, source paths and untrusted-data warning; no semantic indexing or external ingestion | CI run 39432151659 passed; external web/repository ingestion and refresh/deletion workflow remain open |
 | Web/repository scout | Not implemented at import | source provenance, rate limits, license/security checks |
 | Reverse engineering skill | Not implemented at import | evidence-labelled static analysis and safe scope checks |
 | Live Windows UIA, voice, phone, browser | Not verified in V3 | real Windows end-to-end test receipts |
@@ -67,3 +67,12 @@ The submitted ledger covers these named collections and numbered studies. Its fu
 ## Change protocol
 
 Every new study gets: name, canonical URL/source, date checked, license, mechanism, applicability, rejected alternatives, security/dependency cost, proposed V3 change, tests, and status. Update status only with evidence. This ledger is an index and governance record; it does not substitute for importing the original study files or implementing their mechanisms.
+
+
+## V3 implementation receipt — 2026-10-20
+
+- **CI:** GitHub Actions run [39432151659](https://github.com/IaMNOo0B/Jarvis-v3/actions/runs/39432151659), commit `4ed9a5aa766a744bf306db3681632ee51eeb6dd4`, completed successfully. The job ran the standard-library unittest suite. This is automated test evidence, not a Windows end-to-end receipt.
+- **Safe repair ledger:** `jarvis/self_healing.py` stores bounded repair proposals, test receipts and review decisions. A passing receipt is required before approval for manual review. It does not run generated code, modify the live app, or apply a patch.
+- **Automatic task reflection:** chat replies and allow-listed app launch attempts are recorded with evidence-labelled outcomes; these labels do not claim the user’s overall goal succeeded.
+- **GUI response dispatch:** corrected the worker event payload to include both task and response, matching the UI handler contract.
+- **Research ledger scope:** this file remains a compact index, not the full verbatim original ledger or a complete archive of all research artifacts. Individual study URLs, licensing details, exact evidence and original source files still need to be imported study-by-study before those entries can be considered fully audited.
