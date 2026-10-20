@@ -15,6 +15,7 @@ OUTCOMES = {
     "response_generated",
     "action_accepted",
     "action_failed",
+    "action_unknown",
     "provider_failed",
     "research_succeeded",
     "research_failed",
