@@ -1,9 +1,15 @@
+import json
+import tempfile
 import unittest
+from pathlib import Path
+from subprocess import CompletedProcess
+from unittest.mock import patch
 
 from jarvis.desktop_automation import (
     AppEntry,
     AppRegistry,
     UIActionRequest,
+    PowerShellUIAutomationBackend,
     execute_ui_action,
 )
 
@@ -81,6 +87,46 @@ class DesktopAutomationContractTests(unittest.TestCase):
         self.assertFalse(result.success)
         self.assertEqual(result.status, "adapter_error")
         self.assertNotIn("sensitive", result.detail)
+
+    def test_powershell_adapter_passes_user_text_as_json_stdin_without_shell(self):
+        with tempfile.TemporaryDirectory() as directory:
+            script = Path(directory) / "fixed.ps1"
+            script.write_text("# fixed test helper", encoding="utf-8")
+            backend = PowerShellUIAutomationBackend(
+                powershell_executable="powershell.exe", script_path=script, platform_name="nt",
+            )
+            completed = CompletedProcess(args=["powershell.exe"], returncode=0, stdout='{"success": true}', stderr="")
+            with patch("jarvis.desktop_automation.subprocess.run", return_value=completed) as run:
+                self.assertTrue(backend._invoke("type_text", "notepad", "blank document", "Hello & $Sir"))
+            args, kwargs = run.call_args
+            self.assertFalse(kwargs["shell"])
+            payload = json.loads(kwargs["input"])
+            self.assertEqual(payload["text"], "Hello & $Sir")
+            self.assertEqual(payload["app"], "notepad")
+
+    def test_powershell_adapter_rejects_unsupported_targets_and_oversized_text(self):
+        with tempfile.TemporaryDirectory() as directory:
+            script = Path(directory) / "fixed.ps1"
+            script.write_text("# fixed test helper", encoding="utf-8")
+            backend = PowerShellUIAutomationBackend(
+                powershell_executable="powershell.exe", script_path=script, platform_name="nt",
+            )
+            with patch("jarvis.desktop_automation.subprocess.run") as run:
+                self.assertFalse(backend._invoke("type_text", "powershell", "blank document", "hello"))
+                self.assertFalse(backend._invoke("type_text", "notepad", "other target", "hello"))
+                self.assertFalse(backend._invoke("type_text", "notepad", "blank document", "x" * 2001))
+            run.assert_not_called()
+
+    def test_powershell_adapter_reports_nonzero_exit_as_failure(self):
+        with tempfile.TemporaryDirectory() as directory:
+            script = Path(directory) / "fixed.ps1"
+            script.write_text("# fixed test helper", encoding="utf-8")
+            backend = PowerShellUIAutomationBackend(
+                powershell_executable="powershell.exe", script_path=script, platform_name="nt",
+            )
+            failed = CompletedProcess(args=["powershell.exe"], returncode=1, stdout="{}", stderr="failed")
+            with patch("jarvis.desktop_automation.subprocess.run", return_value=failed):
+                self.assertFalse(backend._invoke("type_text", "notepad", "blank document", "hello"))
 
     def test_registry_rejects_duplicate_apps(self):
         with self.assertRaises(ValueError):
