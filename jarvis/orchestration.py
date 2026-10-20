@@ -73,11 +73,21 @@ def run_capability(
     except Exception:
         return TaskOutcome(capability.name, "failed", "Capability failed; internal details were withheld.")
     if isinstance(result, TaskOutcome):
-        if result.capability.casefold() != capability.name.casefold():
+        if not isinstance(result.capability, str) or result.capability.casefold() != capability.name.casefold():
             return TaskOutcome(capability.name, "invalid_result", "Handler returned mismatched capability evidence.")
-        if result.status == "verified" and result.evidence.strip():
+        allowed_statuses = {"verified", "attempted", "failed", "blocked", "cancelled", "unknown"}
+        if result.status not in allowed_statuses:
+            return TaskOutcome(capability.name, "invalid_result", "Handler returned an unsupported outcome status.")
+        if not isinstance(result.detail, str) or len(result.detail) > 2000:
+            return TaskOutcome(capability.name, "invalid_result", "Handler returned invalid or oversized detail.")
+        if result.status == "verified":
+            if not isinstance(result.evidence, str) or not result.evidence.strip() or len(result.evidence) > 2000:
+                return TaskOutcome(capability.name, "invalid_result", "Verified outcomes require bounded, explicit evidence.")
             return result
-        return TaskOutcome(capability.name, result.status, result.detail, result.evidence or "none", result.value)
+        evidence = result.evidence if isinstance(result.evidence, str) and result.evidence else "none"
+        if len(evidence) > 2000:
+            return TaskOutcome(capability.name, "invalid_result", "Handler returned oversized evidence.")
+        return TaskOutcome(capability.name, result.status, result.detail, evidence, result.value)
     return TaskOutcome(
         capability.name,
         "attempted",
