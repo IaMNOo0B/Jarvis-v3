@@ -5,6 +5,8 @@ import shutil
 import subprocess
 from dataclasses import dataclass
 
+from jarvis.safety import ActionRegistry, ActionSpec, RiskLevel, SafetyGate
+
 
 @dataclass(frozen=True)
 class LaunchResult:
@@ -27,6 +29,26 @@ def parse_app_launch_request(message: str) -> str | None:
         if words[1] in {"open", "launch", "start"} and words[2] in {"notepad", "chrome"}:
             return words[2]
     return None
+
+
+def launch_app_with_approval(app_name: str, *, user_approved: bool) -> LaunchResult:
+    """Run an allow-listed app launch only after a per-request explicit approval."""
+    app = app_name.strip().casefold()
+    if app not in {"notepad", "chrome"}:
+        return LaunchResult(False, app_name, "App is not on the allow-list.")
+    registry = ActionRegistry()
+    registry.register(ActionSpec(
+        name="launch_app",
+        risk=RiskLevel.REVERSIBLE,
+        description=f"Launch allow-listed app: {app}",
+        handler=lambda: launch_allowlisted_app(app),
+    ))
+    gate = SafetyGate()
+    try:
+        result = gate.execute("launch_app", registry, user_approved=user_approved)
+    except PermissionError:
+        return LaunchResult(False, app, "Launch blocked: explicit user approval is required.")
+    return result
 
 
 def launch_allowlisted_app(app_name: str) -> LaunchResult:
