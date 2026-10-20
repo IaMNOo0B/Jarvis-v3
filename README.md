@@ -4,7 +4,7 @@ A Windows-first desktop AI assistant, built incrementally from a clean foundatio
 
 ## Project status
 
-**Early prototype — not a finished assistant.** Text chat, provider interfaces, secure credential integration, and a minimal GUI are under active development. Desktop app launching is limited to exact Notepad/Chrome requests with an explicit confirmation dialog. Persistent reminders (create/list/cancel and GUI notifications) and a provenance-aware local memory-store foundation are implemented. Memory is exposed through explicit `/remember`, `/memories`, `/forget ID`, and confirmation-protected `/forget-all` commands. Voice, live UI Automation integration, installer, and end-to-end Windows verification are not complete. The UI Automation contract and fake-backend tests do not control the desktop yet.
+**Early prototype — not a finished assistant.** Text chat, provider interfaces, secure credential integration, and a minimal GUI are under active development. Desktop app launching is limited to exact Notepad/Chrome requests with an explicit confirmation dialog. Persistent reminders (create/list/cancel and GUI notifications), provenance-aware local memory controls, and a bounded secret-redacting activity journal are implemented. Memory is exposed through explicit `/remember`, `/memories`, `/forget ID`, and confirmation-protected `/forget-all` commands. Voice, live UI Automation integration, installer, and end-to-end Windows verification are not complete. The UI Automation contract and fake-backend tests do not control the desktop yet.
 
 ## Start the GUI
 
