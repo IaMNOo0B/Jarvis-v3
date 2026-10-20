@@ -69,7 +69,7 @@ class TaskPlanner:
         # Common lookup phrasing works without a special research command.
         generic_lookup_prefixes = (
             "research ", "look up ", "search for ", "find information about ",
-            "find out about ", "tell me about ", "can you research ",
+            "find out about ", "can you research ",
             "can you find information about ", "please research ",
             "please look up ", "please search for ",
         )
@@ -80,6 +80,13 @@ class TaskPlanner:
                     query = query[len("on wikipedia "):].strip()
                 if query.casefold().startswith("on github "):
                     query = query[len("on github "):].strip()
+                    if query:
+                        return TaskPlan(text, "research_github", (
+                            PlanStep("fetch", "Query GitHub's fixed public repository API.", False, "research_github"),
+                            PlanStep("cite", "Show repository metadata, URLs and evidence limitations.", False),
+                        ))
+                if query.casefold().startswith("github "):
+                    query = query[len("github "):].strip()
                     if query:
                         return TaskPlan(text, "research_github", (
                             PlanStep("fetch", "Query GitHub's fixed public repository API.", False, "research_github"),
