@@ -9,7 +9,7 @@ Sir types one natural-language message in the JARVIS window. JARVIS classifies t
 
 ## One entry point
 
-- JARVIS.bat is the single user-facing Windows control menu.
+- `JARVIS.bat` is the single user-facing Windows entry point: double-click starts JARVIS directly; pass `--menu` to open setup/repair, safe update, diagnostics, and exit options.
 - Start can create a local Python virtual environment on first run.
 - Setup checks Python 3.12+, Tkinter and SQLite.
 - Update is fast-forward-only and refuses a dirty working tree.
@@ -83,13 +83,13 @@ Sir types one natural-language message in the JARVIS window. JARVIS classifies t
 
 ## Current receipts (2026-10-20)
 
-- JARVIS.bat created as one user-facing control menu; duplicate BAT entry points were removed from the working branch.
+- `JARVIS.bat` is merged to `main` as the one user-facing entry point. Double-click starts the GUI directly and bootstraps a private `.venv` on first run; `JARVIS.bat --menu` opens maintenance options. Duplicate BAT entry points were removed.
 - GUI multiline output formatting was corrected in the working branch.
 - Public research, archive, task receipts and reviewable learning/self-healing records exist as bounded prototype modules. Step receipts are now persisted for public research, allow-listed app launch sequences, explicit URL navigation, and Notepad text entry; URL and typed-text payloads are omitted from durable task/learning receipts. The Notepad text limit is enforced in UTF-16 code units before launch and again at the capability/UIA boundary. A read-only preflight prevents known helper/platform-unavailable cases from launching Notepad; successful preflight is not itself a side effect. Typing targets only a blank document and reports verified only after exact read-back. This is not evidence of a real Windows smoke test.
 - jarvis/orchestration.py now defines a fail-closed capability registry, approval gate, cancellation checkpoints and explicit evidence outcomes. Unit tests were added in tests/test_orchestration.py.
 - GUI dispatch now routes explicit Wikipedia/GitHub research, allow-listed app launch sequences, fixed Notepad text entry, and explicit HTTP(S) URL navigation through the registered capability registry and task runtime. Automatic reflection supports `action_verified`, `action_partial`, and `action_unknown` without silently treating them as generic failures. Unexpected desktop-worker exceptions now create a generic reviewable repair proposal; normal precondition failures and ambiguous/partial outcomes do not. `/repairs` lists the latest proposals read-only. No proposal changes live code automatically. Stop/Esc cancellation is wired to chat generation, research and provider health checks; launch cancellation warns that the app may already have opened. Cancellation cannot forcibly interrupt an in-flight provider/network call; it discards the result at the next safe boundary.
-- Automated CI passed on commit `6bf58666a86235eed723ec821672306e2a0309ee` ([run 39465829030](https://github.com/IaMNOo0B/Jarvis-v3/actions/runs/39465829030)): Python source compilation, GUI launcher compilation, and all 204 standard-library tests passed. The manual Notepad smoke-test script itself is compiled/unit-checked but has not been run on a real Windows desktop. The feature branch has not been verified on a real Windows PC. Stop/Esc cancellation is wired into chat generation, research, and provider health-check workers at safe boundaries; in-flight provider/network calls are not forcibly interrupted. App-launch cancellation after launch begins is recorded as `action_unknown`, not `action_failed`, because the app may already have opened. Accepted launch requests still do not prove that a window became visible.
-- PR #2 remains draft/open/unmerged; do not install this branch as a final release.
+- Automated CI passed on merged main commit `36c691ebaad98bbe684b73615a34dae047ab713a` ([run 39469010381](https://github.com/IaMNOo0B/Jarvis-v3/actions/runs/39469010381)): compilation and all 207 standard-library tests passed. CI has now been expanded to `ubuntu-latest` and `windows-latest`, with a PowerShell parser check on Windows; the first matrix run is tracked in [run 39469525925](https://github.com/IaMNOo0B/Jarvis-v3/actions/runs/39469525925). These CI checks are not a GUI desktop smoke test. The manual Notepad smoke script has not yet been run on the user's Windows desktop. Stop/Esc cancellation is wired to chat, research and provider health checks at safe boundaries; active provider/network calls are not forcibly interrupted. Cancellation during app launch is reported as unknown because the app may already have opened. Accepted launch requests still do not prove that a window became visible.
+- PR #2 was squash-merged to `main` on 2026-10-20 (merge commit `36c691ebaad98bbe684b73615a34dae047ab713a`). This does not make the project fully release-ready: the real Windows launcher/UIA smoke test, clean install/upgrade/data-preservation checks, and packaging gates remain open.
 
 ## Definition of done
 
