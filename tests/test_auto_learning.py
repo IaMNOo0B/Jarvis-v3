@@ -31,6 +31,11 @@ class AutomaticLearningTests(unittest.TestCase):
         self.assertEqual(result.episode.outcome, "provider_failed")
         self.assertEqual(result.confidence, "high")
 
+    def test_obvious_secrets_are_redacted_from_automatic_history(self):
+        result = self.learning.reflect("Use api_key=AIza1234567890123456789012345", outcome="response_generated")
+        self.assertNotIn("AIza1234567890123456789012345", result.episode.task)
+        self.assertIn("[REDACTED", result.episode.task)
+
     def test_rejects_empty_task_and_unknown_outcome(self):
         with self.assertRaises(ValueError):
             self.learning.reflect(" ", outcome="response_generated")
