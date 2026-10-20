@@ -154,7 +154,7 @@ class JarvisWindow:
                 self._append("JARVIS", "No pending reminders.")
             else:
                 lines = [f"#{item.reminder_id} · {item.due_at} · {item.message}" for item in items]
-                self._append("JARVIS", "Pending reminders:\\n" + "\\n".join(lines))
+                self._append("JARVIS", "Pending reminders:\n" + "\n".join(lines))
             return True
         if lowered.startswith("/cancel-reminder "):
             raw_id = message.strip().split(maxsplit=1)[1]
@@ -201,7 +201,7 @@ class JarvisWindow:
                 self._append("JARVIS", "No saved memories.")
             else:
                 lines = [f"#{item.memory_id} · {item.content} (source: {item.source})" for item in items]
-                self._append("JARVIS", "Saved memories:\\n" + "\\n".join(lines))
+                self._append("JARVIS", "Saved memories:\n" + "\n".join(lines))
             return True
         if lowered.startswith("/forget "):
             raw_id = stripped.split(maxsplit=1)[1]
@@ -229,7 +229,7 @@ class JarvisWindow:
     def _handle_help_command(self, message: str) -> bool:
         if message.strip().casefold() != "/help":
             return False
-        self._append("JARVIS", "Supported features and commands:\\n- Normal messages: chat with the selected provider\\n- open Notepad / open Chrome: asks before launch\\n- research Wikipedia TOPIC / research GitHub TOPIC: explicit bounded public lookup\\n- /tasks: recent task receipts\\n- /clear-tasks: delete task receipts after confirmation\\n- /research-history: recent archived research\\n- /remind TIME | MESSAGE, /reminders, /cancel-reminder ID\\n- /remember TEXT, /memories, /forget ID, /forget-all\\n- /experiences, /skills, /learn TRIGGER | INSTRUCTIONS, /approve-skill ID, /reject-skill ID\\n- Check AI status: performs a real provider generation check\\nLimitations: only Notepad/Chrome launching is supported; research is not independent fact verification; voice, live UI Automation and background reminders are not implemented.")
+        self._append("JARVIS", "Supported features and commands:\n- Normal messages: chat with the selected provider\n- open Notepad / open Chrome: asks before launch\n- research Wikipedia TOPIC / research GitHub TOPIC: explicit bounded public lookup\n- /tasks: recent task receipts\n- /clear-tasks: delete task receipts after confirmation\n- /research-history: recent archived research\n- /remind TIME | MESSAGE, /reminders, /cancel-reminder ID\n- /remember TEXT, /memories, /forget ID, /forget-all\n- /experiences, /skills, /learn TRIGGER | INSTRUCTIONS, /approve-skill ID, /reject-skill ID\n- Check AI status: performs a real provider generation check\nLimitations: only Notepad/Chrome launching is supported; research is not independent fact verification; voice, live UI Automation and background reminders are not implemented.")
         return True
 
     def _handle_task_history_command(self, message: str) -> bool:
@@ -265,7 +265,7 @@ class JarvisWindow:
             "research_failed": "public-source lookup failed",
         }
         lines = [f"#{item['id']} · {item['created_at']} · {labels.get(item['outcome'], item['outcome'])} · {item['task']}" for item in items]
-        self._append("JARVIS", "Recent task receipts (observed outcome, not assumed success):\\n" + "\\n".join(lines))
+        self._append("JARVIS", "Recent task receipts (observed outcome, not assumed success):\n" + "\n".join(lines))
         return True
 
     def _handle_research_history_command(self, message: str) -> bool:
@@ -476,7 +476,7 @@ class JarvisWindow:
                     if report.warnings:
                         lines.append("Limitations:")
                         lines.extend(f"- {warning}" for warning in report.warnings)
-                    self._post_event("research", (True, "\\n".join(lines), message))
+                    self._post_event("research", (True, "\n".join(lines), message))
                 except (ResearchError, ValueError):
                     self._post_event("research", (False, "Public research failed or was unavailable. No result was fabricated.", message))
                 except Exception:
