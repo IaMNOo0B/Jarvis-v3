@@ -109,10 +109,12 @@ def _find_executable(app: str) -> str | None:
 
     if os.name != "nt":
         return None
-    windows = os.environ.get("WINDIR", os.path.join("C:", "Windows"))
+    drive = os.environ.get("SystemDrive", "C:")
+    root = drive + os.sep
+    windows = os.environ.get("WINDIR", os.path.join(root, "Windows"))
     local = os.environ.get("LOCALAPPDATA", "")
-    program_files = os.environ.get("ProgramFiles", os.path.join("C:", "Program Files"))
-    program_files_x86 = os.environ.get("ProgramFiles(x86)", os.path.join("C:", "Program Files (x86)"))
+    program_files = os.environ.get("ProgramFiles", os.path.join(root, "Program Files"))
+    program_files_x86 = os.environ.get("ProgramFiles(x86)", os.path.join(root, "Program Files (x86)"))
     candidates = {
         "notepad": (os.path.join(windows, "System32", "notepad.exe"),),
         "calculator": (os.path.join(windows, "System32", "calc.exe"),),
