@@ -12,6 +12,8 @@ from jarvis.memory import MemoryStore
 from jarvis.learning import LearningStore
 from jarvis.auto_learning import AutomaticLearning
 from jarvis.self_healing import RepairLedger
+from jarvis.task_planner import TaskPlanner
+from jarvis.research import PublicResearch, ResearchError
 from jarvis.activity import ActivityJournal
 
 from jarvis.chat_service import ChatService
@@ -39,6 +41,8 @@ class JarvisWindow:
         self.learning = LearningStore()
         self.auto_learning = AutomaticLearning(self.learning)
         self.repairs = RepairLedger()
+        self.planner = TaskPlanner()
+        self.research = PublicResearch()
         self.activity = ActivityJournal()
         self._notified_reminders: set[int] = set()
 
@@ -115,6 +119,9 @@ class JarvisWindow:
                 self.status.set(f"AI status: {label} · {detail}")
                 self.busy = False
                 self.send_button.configure(state="normal")
+            elif kind == "research":
+                success, detail, task = payload
+                self._finish_research(bool(success), str(detail), str(task))
         self.root.after(40, self._drain_events)
 
     def _check_due_reminders(self) -> None:
@@ -359,6 +366,47 @@ class JarvisWindow:
             return
         if self._handle_learning_command(message):
             return
+        plan = self.planner.plan(message)
+        self._record_activity("task_plan", plan.intent, f"steps={len(plan.steps)}")
+        if plan.intent == "invalid_research":
+            self._append("JARVIS", "Research request incomplete. Example: 'research Wikipedia artificial intelligence' or 'research GitHub agent framework'.")
+            return
+        if plan.intent in {"research_wikipedia", "research_github"}:
+            prefix_map = {
+                "research_wikipedia": ("research wikipedia ", "wiki research ", "wikipedia par research "),
+                "research_github": ("research github ", "github research ", "github par research "),
+            }
+            lowered = message.casefold().strip()
+            prefix = next(p for p in prefix_map[plan.intent] if lowered.startswith(p))
+            query = message.strip()[len(prefix):].strip()
+            source = "wikipedia" if plan.intent == "research_wikipedia" else "github"
+            self.busy = True
+            self.send_button.configure(state="disabled")
+            self.status.set(f"Research: searching public {source.title()} metadata…")
+
+            def research_work():
+                try:
+                    report = self.research.search(source, query)
+                    lines = [f"Research query: {report.query}", ""]
+                    if not report.sources:
+                        lines.append("No results were returned by the source.")
+                    for index, item in enumerate(report.sources, 1):
+                        lines.append(f"{index}. {item.title}")
+                        lines.append(item.snippet or "No description/snippet supplied.")
+                        lines.append(item.url)
+                        lines.append("")
+                    if report.warnings:
+                        lines.append("Limitations:")
+                        lines.extend(f"- {warning}" for warning in report.warnings)
+                    self._post_event("research", (True, "\\n".join(lines), message))
+                except (ResearchError, ValueError):
+                    self._post_event("research", (False, "Public research failed or was unavailable. No result was fabricated.", message))
+                except Exception:
+                    self._post_event("research", (False, "Unexpected research error. No result was fabricated.", message))
+
+            threading.Thread(target=research_work, daemon=True).start()
+            return
+
         app_name = parse_app_launch_request(message)
         if app_name:
             approved = messagebox.askyesno(
@@ -441,6 +489,22 @@ class JarvisWindow:
         self.busy = False
         self.send_button.configure(state="normal")
         self.status.set(f"AI status: response finished · {self.provider_name}")
+        self.entry.focus_set()
+
+    def _finish_research(self, success: bool, detail: str, task: str) -> None:
+        if self.closing:
+            return
+        outcome = "response_generated" if success else "provider_failed"
+        try:
+            reflection = self.auto_learning.reflect(task, outcome=outcome, evidence="Public-source lookup completed." if success else "Research source unavailable.")
+            self._record_activity("automatic_reflection", reflection.outcome, f"episode={reflection.episode.episode_id}")
+        except (ValueError, OSError):
+            self._record_activity("automatic_reflection", "failed", "research outcome was not recorded")
+        self._record_activity("public_research", "success" if success else "failed")
+        self._append("JARVIS", detail)
+        self.busy = False
+        self.send_button.configure(state="normal")
+        self.status.set("Research: finished" if success else "Research: unavailable")
         self.entry.focus_set()
 
     def check_status(self) -> None:
