@@ -6,6 +6,10 @@ A Windows-first desktop AI assistant, built incrementally from a clean foundatio
 
 **Early prototype — not a finished assistant.** Text chat, provider interfaces, secure credential integration, and a minimal GUI are under active development. Notepad/Chrome launch requests are recognized from a small set of natural English/Hinglish phrasings and always require per-request confirmation. Each completed chat response and app-launch attempt is now automatically recorded in the local learning database with an evidence-labelled outcome; no `/experience` command is needed for that basic history. This records what JARVIS itself observed, not whether the user's larger goal succeeded. Automatic records can contain a short task description, so users should not enter passwords or secrets into chat. Memory controls, reminders, and skill-review commands remain available, but automatic skill creation, automatic code changes, background web research, Wikipedia ingestion, voice, live UI Automation, installer, and end-to-end Windows verification are not complete. Skill proposals remain text-only and do not execute code or bypass safety gates. A compact research-ledger index has been added at `docs/JARVIS-RESEARCH-LEDGER.md`; it summarizes the submitted categories and implementation queue, but does not yet reproduce every original study entry or source file. GUI chat now performs bounded lexical retrieval from local `docs/` and `knowledge/` text files and includes source paths with an explicit untrusted-reference warning. This is local-file retrieval only—not web crawling, Wikipedia syncing, repository polling, or semantic/vector search. The ledger’s historical `[BUILT]` labels are not claims that those features exist in V3.
 
+## Complete implementation scope
+
+The consolidated feature inventory, build order, safety rules, and release gates live in [docs/MASTER-IMPLEMENTATION-MAP.md](docs/MASTER-IMPLEMENTATION-MAP.md). Treat it as the single roadmap; the research ledger records study provenance and implementation evidence.
+
 ## One-click Windows control
 
 Use **`JARVIS.bat`** as the only setup/control entry point. It opens one menu for:
