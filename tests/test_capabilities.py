@@ -16,15 +16,37 @@ class FakeResearch:
         return ResearchReport(query, (ResearchSource("Example", "https://example.com/item", "Snippet", source),), ("Not independently verified.",))
 
 
+class FakeUIAutomationBackend:
+    available = True
+
+    def __init__(self, *, target=True, perform=True, verify=True):
+        self.target = target
+        self.perform_result = perform
+        self.verify_result = verify
+        self.calls = []
+
+    def target_exists(self, app_name, target_name):
+        self.calls.append(("target_exists", app_name, target_name))
+        return self.target
+
+    def perform(self, request):
+        self.calls.append(("perform", request))
+        return self.perform_result
+
+    def verify(self, request):
+        self.calls.append(("verify", request))
+        return self.verify_result
+
+
 class CapabilityTests(unittest.TestCase):
     def setUp(self):
         self.research = FakeResearch()
         self.registry = build_capability_registry(self.research)
 
-    def test_only_three_explicit_capabilities_registered(self):
+    def test_only_explicit_capabilities_registered(self):
         self.assertEqual(
             set(self.registry._items),
-            {"launch_app", "research_wikipedia", "research_github"},
+            {"launch_app", "type_notepad_text", "research_wikipedia", "research_github"},
         )
 
     def test_research_is_bounded_and_returns_source_evidence(self):
@@ -60,6 +82,56 @@ class CapabilityTests(unittest.TestCase):
             outcome = run_capability("launch_app", {"app": "powershell"}, registry=self.registry, approved=True)
         self.assertEqual(outcome.status, "blocked")
         launch.assert_not_called()
+
+    def test_notepad_text_entry_requires_approval(self):
+        backend = FakeUIAutomationBackend()
+        registry = build_capability_registry(self.research, ui_backend=backend)
+        result = run_capability(
+            "type_notepad_text",
+            {"target": "blank document", "text": "hello"},
+            registry=registry,
+        )
+        self.assertEqual(result.status, "approval_required")
+        self.assertEqual(backend.calls, [])
+
+    def test_notepad_text_entry_requires_exact_readback(self):
+        backend = FakeUIAutomationBackend()
+        registry = build_capability_registry(self.research, ui_backend=backend)
+        result = run_capability(
+            "type_notepad_text",
+            {"target": "blank document", "text": "hello Sir"},
+            registry=registry,
+            approved=True,
+        )
+        self.assertEqual(result.status, "verified")
+        self.assertEqual(result.evidence, "notepad_readback_exact_match")
+        self.assertEqual([call[0] for call in backend.calls], ["target_exists", "perform", "verify"])
+        self.assertEqual(backend.calls[1][1].text, "hello Sir")
+
+    def test_unverified_notepad_input_is_reported_as_unknown(self):
+        backend = FakeUIAutomationBackend(verify=False)
+        registry = build_capability_registry(self.research, ui_backend=backend)
+        result = run_capability(
+            "type_notepad_text",
+            {"target": "blank document", "text": "hello"},
+            registry=registry,
+            approved=True,
+        )
+        self.assertEqual(result.status, "unknown")
+        self.assertIn("inspect Notepad before retrying", result.detail)
+
+    def test_unavailable_notepad_adapter_does_not_type(self):
+        backend = FakeUIAutomationBackend()
+        backend.available = False
+        registry = build_capability_registry(self.research, ui_backend=backend)
+        result = run_capability(
+            "type_notepad_text",
+            {"target": "blank document", "text": "hello"},
+            registry=registry,
+            approved=True,
+        )
+        self.assertEqual(result.status, "failed")
+        self.assertEqual(backend.calls, [])
 
     def test_unknown_capability_is_not_invented(self):
         outcome = run_capability("run_shell", {}, registry=self.registry, approved=True)
