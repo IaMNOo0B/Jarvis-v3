@@ -7,6 +7,7 @@ from tkinter import messagebox, scrolledtext, simpledialog, ttk
 from datetime import datetime, timezone
 
 from jarvis.reminders import ReminderStore
+from jarvis.memory import MemoryStore
 
 from jarvis.chat_service import ChatService
 from jarvis.credentials import CredentialStore, CredentialStoreError
@@ -28,6 +29,7 @@ class JarvisWindow:
         self.closing = False
         self._events: queue.Queue[tuple[str, object]] = queue.Queue()
         self.reminders = ReminderStore()
+        self.memory = MemoryStore()
         self._notified_reminders: set[int] = set()
 
         shell = ttk.Frame(root, padding=12)
@@ -96,7 +98,48 @@ class JarvisWindow:
                 self.send_button.configure(state="normal")
         self.root.after(40, self._drain_events)
 
-    def _check_due_reminders(self) -> None:\n        if self.closing:\n            return\n        try:\n            for reminder in self.reminders.due():\n                if reminder.reminder_id in self._notified_reminders:\n                    continue\n                # Mark before showing UI so repeated polling cannot duplicate this session notification.\n                if self.reminders.mark_fired(reminder.reminder_id):\n                    self._notified_reminders.add(reminder.reminder_id)\n                    self._append("REMINDER", reminder.message)\n                    messagebox.showinfo("JARVIS reminder", reminder.message, parent=self.root)\n        except Exception:\n            self.status.set("Reminder check failed; saved reminders were not deleted.")\n        if not self.closing:\n            self.root.after(1000, self._check_due_reminders)\n\n    def _handle_reminder_command(self, message: str) -> bool:\n        lowered = message.casefold().strip()\n        if lowered == "/reminders":\n            items = self.reminders.list()\n            if not items:\n                self._append("JARVIS", "No pending reminders.")\n            else:\n                lines = [f"#{item.reminder_id} · {item.due_at} · {item.message}" for item in items]\n                self._append("JARVIS", "Pending reminders:\\n" + "\\n".join(lines))\n            return True\n        if lowered.startswith("/cancel-reminder "):\n            raw_id = message.strip().split(maxsplit=1)[1]\n            if not raw_id.isdigit():\n                self._append("JARVIS", "Usage: /cancel-reminder ID")\n            elif self.reminders.cancel(int(raw_id)):\n                self._append("JARVIS", f"Cancelled reminder #{raw_id}.")\n            else:\n                self._append("JARVIS", f"No pending reminder found with ID {raw_id}.")\n            return True\n        if lowered.startswith("/remind "):\n            payload = message.strip()[len("/remind "): ]\n            if "|" not in payload:\n                self._append("JARVIS", "Usage: /remind YYYY-MM-DDTHH:MM:SS+05:30 | reminder text (time must include timezone)")\n                return True\n            due_at, content = payload.split("|", 1)\n            try:\n                reminder = self.reminders.create(due_at.strip(), content)\n            except (ValueError, OSError):\n                self._append("JARVIS", "Reminder not saved. Check the ISO date/time, timezone offset, and message.")\n                return True\n            self._append("JARVIS", f"Saved reminder #{reminder.reminder_id} for {reminder.due_at} (UTC).")\n            return True\n        return False\n\n    def _set_provider(self, name: str) -> None:
+    def _check_due_reminders(self) -> None:\n        if self.closing:\n            return\n        try:\n            for reminder in self.reminders.due():\n                if reminder.reminder_id in self._notified_reminders:\n                    continue\n                # Mark before showing UI so repeated polling cannot duplicate this session notification.\n                if self.reminders.mark_fired(reminder.reminder_id):\n                    self._notified_reminders.add(reminder.reminder_id)\n                    self._append("REMINDER", reminder.message)\n                    messagebox.showinfo("JARVIS reminder", reminder.message, parent=self.root)\n        except Exception:\n            self.status.set("Reminder check failed; saved reminders were not deleted.")\n        if not self.closing:\n            self.root.after(1000, self._check_due_reminders)\n\n    def _handle_reminder_command(self, message: str) -> bool:\n        lowered = message.casefold().strip()\n        if lowered == "/reminders":\n            items = self.reminders.list()\n            if not items:\n                self._append("JARVIS", "No pending reminders.")\n            else:\n                lines = [f"#{item.reminder_id} · {item.due_at} · {item.message}" for item in items]\n                self._append("JARVIS", "Pending reminders:\\n" + "\\n".join(lines))\n            return True\n        if lowered.startswith("/cancel-reminder "):\n            raw_id = message.strip().split(maxsplit=1)[1]\n            if not raw_id.isdigit():\n                self._append("JARVIS", "Usage: /cancel-reminder ID")\n            elif self.reminders.cancel(int(raw_id)):\n                self._append("JARVIS", f"Cancelled reminder #{raw_id}.")\n            else:\n                self._append("JARVIS", f"No pending reminder found with ID {raw_id}.")\n            return True\n        if lowered.startswith("/remind "):\n            payload = message.strip()[len("/remind "): ]\n            if "|" not in payload:\n                self._append("JARVIS", "Usage: /remind YYYY-MM-DDTHH:MM:SS+05:30 | reminder text (time must include timezone)")\n                return True\n            due_at, content = payload.split("|", 1)\n            try:\n                reminder = self.reminders.create(due_at.strip(), content)\n            except (ValueError, OSError):\n                self._append("JARVIS", "Reminder not saved. Check the ISO date/time, timezone offset, and message.")\n                return True\n            self._append("JARVIS", f"Saved reminder #{reminder.reminder_id} for {reminder.due_at} (UTC).")\n            return True\n        return False\n\n    def _handle_memory_command(self, message: str) -> bool:
+        stripped = message.strip()
+        lowered = stripped.casefold()
+        if lowered.startswith("/remember "):
+            content = stripped[len("/remember "):].strip()
+            try:
+                item = self.memory.remember(content, source="explicit_user_command")
+            except ValueError:
+                self._append("JARVIS", "Memory not saved. Use /remember followed by 1–4000 characters.")
+                return True
+            self._append("JARVIS", f"Saved memory #{item.memory_id}. Use /memories to list it or /forget ID to delete it.")
+            return True
+        if lowered == "/memories":
+            items = self.memory.list()
+            if not items:
+                self._append("JARVIS", "No saved memories.")
+            else:
+                lines = [f"#{item.memory_id} · {item.content} (source: {item.source})" for item in items]
+                self._append("JARVIS", "Saved memories:\\n" + "\\n".join(lines))
+            return True
+        if lowered.startswith("/forget "):
+            raw_id = stripped.split(maxsplit=1)[1]
+            if not raw_id.isdigit():
+                self._append("JARVIS", "Usage: /forget ID")
+                return True
+            if not messagebox.askyesno("Forget memory", f"Permanently delete saved memory #{raw_id}?", parent=self.root):
+                self._append("JARVIS", "Cancelled. Memory was kept.")
+            elif self.memory.forget(int(raw_id)):
+                self._append("JARVIS", f"Forgot memory #{raw_id}.")
+            else:
+                self._append("JARVIS", f"Memory #{raw_id} was not found.")
+            return True
+        if lowered == "/forget-all":
+            if not messagebox.askyesno("Forget all memories", "Permanently delete ALL saved JARVIS memories?", parent=self.root):
+                self._append("JARVIS", "Cancelled. Memories were kept.")
+            else:
+                count = self.memory.forget_all(confirmed=True)
+                self._append("JARVIS", f"Forgot {count} saved memories.")
+            return True
+        return False
+
+    def _set_provider(self, name: str) -> None:
         credentials = CredentialStore() if name == "gemini" else None
         provider = build_provider(ProviderConfig(name=name), credentials=credentials)
         self.provider = provider
