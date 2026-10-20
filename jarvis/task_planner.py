@@ -6,7 +6,7 @@ Execution remains behind the GUI approval path and the action registry.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from jarvis.desktop_actions import parse_app_launch_request
+from jarvis.desktop_actions import APP_EXECUTABLES, parse_app_launch_request
 
 
 @dataclass(frozen=True)
@@ -41,7 +41,7 @@ class TaskPlanner:
                     PlanStep("execute", f"Launch allow-listed app {app.title()} without a shell or another confirmation dialog.", True, "launch_app"),
                     PlanStep("verify", "Report the operating-system launch result; app visibility is not guaranteed.", False),
                 ),
-                ("Only Notepad and Chrome are currently allow-listed.",),
+                ("A successful process-launch request does not prove the app window is visible or ready.",),
             )
         lowered = text.casefold()
         prefixes = (
@@ -66,7 +66,6 @@ class TaskPlanner:
                     PlanStep("cite", "Show source URLs, bounded snippets and evidence limitations.", False),
                 ))
 
-        # Common lookup phrasing works without a special research command.
         generic_lookup_prefixes = (
             "research ", "look up ", "search for ", "find information about ",
             "find out about ", "can you research ",
@@ -103,6 +102,7 @@ class TaskPlanner:
             (PlanStep("answer", "Use the configured AI provider and relevant local reference material.", False),),
             ("No unsupported desktop or external action will be inferred from an ordinary chat request.",),
         )
+
 
 def extract_research_query(request: str, intent: str) -> str:
     """Extract only the topic text for an already-classified public lookup."""
