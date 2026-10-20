@@ -13,6 +13,16 @@ class LaunchResult:
     detail: str
 
 
+def parse_app_launch_request(message: str) -> str | None:
+    """Recognize only exact, simple launch phrases for two allow-listed apps."""
+    words = message.strip().casefold().split()
+    if len(words) != 2 or words[0] not in {"open", "launch", "start"}:
+        return None
+    if words[1] in {"notepad", "chrome"}:
+        return words[1]
+    return None
+
+
 def launch_allowlisted_app(app_name: str) -> LaunchResult:
     """Launch only known apps with argument arrays; caller must obtain approval first."""
     app = app_name.strip().casefold()
