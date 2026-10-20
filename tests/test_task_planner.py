@@ -1,6 +1,6 @@
 import unittest
 
-from jarvis.task_planner import TaskPlanner
+from jarvis.task_planner import TaskPlanner, extract_research_query
 
 
 class TaskPlannerTests(unittest.TestCase):
@@ -16,6 +16,16 @@ class TaskPlannerTests(unittest.TestCase):
     def test_explicit_wikipedia_research_is_planned(self):
         plan = self.planner.plan("Research Wikipedia artificial intelligence")
         self.assertEqual(plan.intent, "research_wikipedia")
+
+    def test_natural_lookup_does_not_require_special_command(self):
+        plan = self.planner.plan("Can you find information about black holes?")
+        self.assertEqual(plan.intent, "research_wikipedia")
+        self.assertEqual(extract_research_query("Can you find information about black holes?", plan.intent), "black holes?")
+
+    def test_natural_github_lookup_extracts_topic(self):
+        plan = self.planner.plan("Please search for GitHub agent frameworks")
+        self.assertEqual(plan.intent, "research_wikipedia")
+        self.assertEqual(extract_research_query("Please search for GitHub agent frameworks", plan.intent), "GitHub agent frameworks")
 
     def test_unknown_action_does_not_become_arbitrary_execution(self):
         plan = self.planner.plan("delete every file and clean my computer")
