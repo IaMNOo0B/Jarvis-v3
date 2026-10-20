@@ -1,8 +1,8 @@
-"""Small no-console Windows chat window. Desktop actions intentionally remain disabled."""
+""""Small no-console Windows chat window. Desktop actions intentionally remain disabled."""
 
 import threading
 import tkinter as tk
-from tkinter import scrolledtext, ttk
+from tkinter import messagebox, scrolledtext, ttk
 
 from jarvis.chat_service import ChatService
 from jarvis.health import check_provider
@@ -18,6 +18,7 @@ class JarvisWindow:
         self.provider = build_provider()
         self.service = ChatService(self.provider)
         self.busy = False
+        self.closing = False
 
         shell = ttk.Frame(root, padding=12)
         shell.pack(fill="both", expand=True)
@@ -48,7 +49,7 @@ class JarvisWindow:
         self.transcript.configure(state="disabled")
 
     def send(self, event=None) -> None:
-        if self.busy:
+        if self.busy or self.closing:
             return
         message = self.entry.get().strip()
         if not message:
@@ -59,11 +60,17 @@ class JarvisWindow:
         self.send_button.configure(state="disabled")
         self.status.set("AI status: generating response…")
         def work():
-            response = self.service.respond(message, timeout_seconds=120.0)
-            self.root.after(0, lambda: self._finish_response(response))
+            try:
+                response = self.service.respond(message, timeout_seconds=120.0)
+            except Exception:
+                response = "An unexpected error occurred; no desktop action was performed."
+            if not self.closing:
+                self.root.after(0, lambda: self._finish_response(response))
         threading.Thread(target=work, daemon=True).start()
 
     def _finish_response(self, response: str) -> None:
+        if self.closing:
+            return
         self._append("JARVIS", response)
         self.busy = False
         self.send_button.configure(state="normal")
@@ -71,17 +78,19 @@ class JarvisWindow:
         self.entry.focus_set()
 
     def check_status(self) -> None:
-        if self.busy:
+        if self.busy or self.closing:
             self.status.set("AI status: busy; wait for the current request")
             return
         self.status.set("AI status: testing with a real generation request…")
         def work():
             result = check_provider(self.provider, timeout_seconds=15.0)
             label = "HEALTHY" if result.healthy else "NOT HEALTHY"
-            self.root.after(0, lambda: self.status.set(f"AI status: {label} · {result.detail}"))
+            if not self.closing:
+                self.root.after(0, lambda: self.status.set(f"AI status: {label} · {result.detail}"))
         threading.Thread(target=work, daemon=True).start()
 
     def close(self) -> None:
+        self.closing = True
         self.root.destroy()
 
 
@@ -90,9 +99,8 @@ def main() -> None:
     try:
         JarvisWindow(root)
     except Exception as exc:
-        # The GUI shows a sanitized startup failure instead of writing secrets to a log.
         root.withdraw()
-        tk.messagebox.showerror("JARVIS could not start", f"Startup failed ({type(exc).__name__}). Check that Ollama is installed and running.")
+        messagebox.showerror("JARVIS could not start", f"Startup failed ({type(exc).__name__}). Check that Ollama is installed and running.")
         root.destroy()
         return
     root.mainloop()
@@ -100,3 +108,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+"
