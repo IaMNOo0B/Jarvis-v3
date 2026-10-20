@@ -391,7 +391,8 @@ class JarvisWindow:
                 response = self.service.respond(message, timeout_seconds=120.0)
             except Exception:
                 response = "An unexpected error occurred; no desktop action was performed."
-            self._post_event("response", response)
+            # The UI event handler expects both the original task and its response.
+            self._post_event("response", (message, response))
 
         threading.Thread(target=work, daemon=True).start()
 
