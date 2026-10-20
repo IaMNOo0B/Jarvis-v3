@@ -10,8 +10,9 @@ from dataclasses import dataclass
 import json
 import re
 from urllib.parse import urlencode
-from urllib.request import Request, urlopen
+from urllib.request import Request, build_opener, HTTPRedirectHandler
 from urllib.error import URLError, HTTPError
+from urllib.parse import urlsplit
 
 
 @dataclass(frozen=True)
@@ -42,14 +43,23 @@ def _query_text(value: str) -> str:
     return value
 
 
+class _NoRedirect(HTTPRedirectHandler):
+    def redirect_request(self, request, fp, code, message, headers, newurl):
+        return None
+
+
 def _get_json(url: str, *, timeout_seconds: float = 8.0) -> object:
+    parsed = urlsplit(url)
+    if parsed.scheme != "https" or parsed.hostname not in {"en.wikipedia.org", "api.github.com"}:
+        raise ResearchError("Research request blocked: destination is not an approved public API.")
     request = Request(
         url,
         headers={"User-Agent": "JARVIS-V3-Research/0.1 (public-source lookup)", "Accept": "application/json"},
         method="GET",
     )
     try:
-        with urlopen(request, timeout=max(1.0, min(timeout_seconds, 10.0))) as response:
+        opener = build_opener(_NoRedirect())
+        with opener.open(request, timeout=max(1.0, min(timeout_seconds, 10.0))) as response:
             if response.status != 200:
                 raise ResearchError(f"Public source returned HTTP {response.status}.")
             body = response.read(512_001)
