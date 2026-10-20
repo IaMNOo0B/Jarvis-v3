@@ -80,7 +80,7 @@ class TaskPlannerTests(unittest.TestCase):
         self.assertIsNone(parse_app_launch_batch("open Notepad and open Notepad"))
         text_plan = self.planner.plan("open Notepad and type hello")
         self.assertEqual(text_plan.intent, "notepad_type_text")
-        self.assertEqual(text_plan.steps[2].input_text, "hello")
+        self.assertEqual(next(step.input_text for step in text_plan.steps if step.action == "type_notepad_text"), "hello")
 
     def test_launch_plan_does_not_claim_window_visibility_is_verified(self):
         plan = self.planner.plan("open calculator")
