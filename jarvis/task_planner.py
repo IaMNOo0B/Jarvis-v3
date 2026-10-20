@@ -123,9 +123,15 @@ def extract_research_query(request: str, intent: str) -> str:
                 query = query[len("on github "):].strip()
             return query
     if intent == "research_github":
-        for prefix in ("search for ", "find information about ", "look up ", "research "):
+        for prefix in (
+            "search for ", "find information about ", "look up ", "research ",
+            "please search for ", "please research ", "please look up ",
+            "can you research ", "can you find information about ",
+        ):
             if lowered.startswith(prefix):
                 query = text[len(prefix):].strip()
                 if query.casefold().startswith("github "):
                     return query[len("github "):].strip()
+                if query.casefold().startswith("on github "):
+                    return query[len("on github "):].strip()
     return ""
