@@ -24,6 +24,28 @@ class TaskPlannerTests(unittest.TestCase):
                     self.assertEqual(plan.intent, "launch_allowlisted_app")
                     self.assertEqual([step.name for step in plan.steps], ["authorize", "execute", "verify"])
 
+    def test_explicit_url_opens_only_the_named_or_default_allowlisted_browser(self):
+        plan = self.planner.plan("open https://example.com/docs in Edge")
+        self.assertEqual(plan.intent, "open_url")
+        action_steps = [step for step in plan.steps if step.action is not None]
+        self.assertEqual(len(action_steps), 1)
+        self.assertEqual(action_steps[0].action, "open_url")
+        self.assertEqual(action_steps[0].target, "edge")
+        self.assertEqual(action_steps[0].input_text, "https://example.com/docs")
+
+        default_plan = self.planner.plan("go to https://example.com")
+        self.assertEqual(default_plan.intent, "open_url")
+        self.assertEqual(default_plan.steps[1].target, "chrome")
+
+    def test_non_http_schemes_do_not_become_browser_navigation(self):
+        for request in (
+            "open file:///C:/Windows/win.ini",
+            "open javascript:alert(1)",
+            "open https://user:password@example.com",
+        ):
+            with self.subTest(request=request):
+                self.assertNotEqual(self.planner.plan(request).intent, "open_url")
+
     def test_explicit_notepad_typing_creates_verified_two_action_plan(self):
         plan = self.planner.plan("open Notepad and type Hello Sir")
         self.assertEqual(plan.intent, "notepad_type_text")
