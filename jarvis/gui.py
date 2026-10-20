@@ -71,9 +71,13 @@ class JarvisWindow:
             self.send_button.configure(state="disabled")
             self.status.set(f"Action: launching {app_name.title()}…")
             def launch():
-                result = launch_allowlisted_app(app_name)
+                try:
+                    result = launch_allowlisted_app(app_name)
+                    success, detail = result.success, result.detail
+                except Exception:
+                    success, detail = False, "Unexpected launch error. No further action was taken."
                 if not self.closing:
-                    self.root.after(0, lambda: self._finish_action(result.success, result.detail))
+                    self.root.after(0, lambda: self._finish_action(success, detail))
             threading.Thread(target=launch, daemon=True).start()
             return
         self.busy = True
