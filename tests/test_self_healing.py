@@ -2,7 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from jarvis.self_healing import RepairLedger
+from jarvis.self_healing import RepairLedger, should_propose_desktop_repair
 
 
 class RepairLedgerTests(unittest.TestCase):
@@ -12,6 +12,29 @@ class RepairLedgerTests(unittest.TestCase):
 
     def tearDown(self):
         self.temp.cleanup()
+
+    def test_only_unexpected_desktop_worker_errors_trigger_repair_proposals(self):
+        for detail in (
+            "Unexpected Notepad automation error. Inspect the desktop before retrying.",
+            "Unexpected browser navigation error. No further action was taken.",
+            "Unexpected launch error. No further action was taken.",
+        ):
+            with self.subTest(detail=detail):
+                self.assertTrue(should_propose_desktop_repair("action_failed", detail))
+
+    def test_normal_preconditions_and_ambiguous_outcomes_do_not_trigger_repair_proposals(self):
+        for outcome, detail in (
+            ("action_failed", "Notepad was not found on this PC."),
+            ("action_failed", "No blank Notepad document was found; existing text was left untouched."),
+            ("action_failed", "URL rejected; only valid HTTP(S) URLs are allowed."),
+            ("action_partial", "Partial execution: one app accepted; next launch failed."),
+            ("action_unknown", "Text may have been partially entered; inspect Notepad before retrying."),
+            ("action_accepted", "Windows accepted the launch request."),
+            ("response_generated", "Unexpected Notepad automation error."),
+            ("action_failed", ""),
+        ):
+            with self.subTest(outcome=outcome, detail=detail):
+                self.assertFalse(should_propose_desktop_repair(outcome, detail))
 
     def test_proposal_is_only_a_proposal_and_persists(self):
         proposal = self.ledger.propose("Provider timeout", "Add bounded retry with cancellation.", "issue-42")
