@@ -6,14 +6,20 @@ A Windows-first desktop AI assistant, built incrementally from a clean foundatio
 
 **Early prototype — not a finished assistant.** Text chat, provider interfaces, secure credential integration, and a minimal GUI are under active development. Notepad/Chrome launch requests are recognized from a small set of natural English/Hinglish phrasings and always require per-request confirmation. Each completed chat response and app-launch attempt is now automatically recorded in the local learning database with an evidence-labelled outcome; no `/experience` command is needed for that basic history. This records what JARVIS itself observed, not whether the user's larger goal succeeded. Automatic records can contain a short task description, so users should not enter passwords or secrets into chat. Memory controls, reminders, and skill-review commands remain available, but automatic skill creation, automatic code changes, background web research, Wikipedia ingestion, voice, live UI Automation, installer, and end-to-end Windows verification are not complete. Skill proposals remain text-only and do not execute code or bypass safety gates. A compact research-ledger index has been added at `docs/JARVIS-RESEARCH-LEDGER.md`; it summarizes the submitted categories and implementation queue, but does not yet reproduce every original study entry or source file. GUI chat now performs bounded lexical retrieval from local `docs/` and `knowledge/` text files and includes source paths with an explicit untrusted-reference warning. This is local-file retrieval only—not web crawling, Wikipedia syncing, repository polling, or semantic/vector search. The ledger’s historical `[BUILT]` labels are not claims that those features exist in V3.
 
-## Windows setup scripts
+## One-click Windows control
 
-- For a first setup, double-click `Install_JARVIS.bat`. It checks Python 3.12+, creates a local `.venv`, checks Tkinter/SQLite, and starts the GUI. It does not install third-party Python packages or download Ollama models.
-- Use `Launch_JARVIS.bat` to run JARVIS in a console so Python errors remain visible.
-- Use `Update_JARVIS.bat` only in a Git checkout with a clean working tree and a configured upstream. It performs `git pull --ff-only`; it does not reset or force-overwrite local changes. It updates the currently checked-out branch, so use GitHub Desktop if you need to switch branches.
-- Local databases and the virtual environment are ignored by Git. Back up user data before manual repository operations.
+Use **`JARVIS.bat`** as the only setup/control entry point. It opens one menu for:
+1. Start JARVIS (creates the Python environment on first run if needed).
+2. First-time setup or environment repair checks.
+3. Safe update (only on a clean Git checkout; fast-forward only).
+4. Diagnostics for Python, Git, local environment, and Ollama.
+5. Exit.
 
-**Verification note:** these batch scripts are source-reviewed but have not yet been executed on a real Windows machine. They are not a signed installer, and the current project is still a prototype.
+The menu checks Python 3.12+, Tkinter, and SQLite. It does not install third-party packages, download an AI model, or configure cloud credentials automatically. Ollama and the configured model remain separate prerequisites for local AI chat. Updates never reset or force-overwrite local changes.
+
+Local databases and the virtual environment are ignored by Git. Back up user data before manual repository operations.
+
+**Verification note:** the batch menu is source-reviewed but has not yet been executed on a real Windows machine. It is not a signed installer, and this project remains a prototype.
 
 ## Start the GUI
 
