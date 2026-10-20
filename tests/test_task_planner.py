@@ -24,6 +24,19 @@ class TaskPlannerTests(unittest.TestCase):
                     self.assertEqual(plan.intent, "launch_allowlisted_app")
                     self.assertEqual([step.name for step in plan.steps], ["authorize", "execute", "verify"])
 
+    def test_explicit_notepad_typing_creates_verified_two_action_plan(self):
+        plan = self.planner.plan("open Notepad and type Hello Sir")
+        self.assertEqual(plan.intent, "notepad_type_text")
+        action_steps = [step for step in plan.steps if step.action is not None]
+        self.assertEqual([step.action for step in action_steps], ["launch_app", "type_notepad_text"])
+        self.assertEqual(action_steps[0].target, "notepad")
+        self.assertEqual(action_steps[1].target, "blank document")
+        self.assertEqual(action_steps[1].input_text, "Hello Sir")
+
+    def test_notepad_typing_with_missing_or_oversized_text_is_not_planned(self):
+        self.assertNotEqual(self.planner.plan("open Notepad and type").intent, "notepad_type_text")
+        self.assertNotEqual(self.planner.plan("open Notepad and type " + "x" * 2001).intent, "notepad_type_text")
+
     def test_multi_app_request_creates_ordered_launch_steps(self):
         plan = self.planner.plan("open Notepad and Calculator")
         self.assertEqual(plan.intent, "launch_allowlisted_apps")
