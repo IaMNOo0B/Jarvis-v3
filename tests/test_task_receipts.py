@@ -26,6 +26,11 @@ class TaskReceiptStoreTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.store.recent(0)
 
+    def test_unknown_action_outcome_is_preserved(self):
+        item = self.store.record("Launch app", "action_unknown", evidence="The app may have opened; inspect desktop before retrying.")
+        self.assertEqual(item["outcome"], "action_unknown")
+        self.assertIn("may have opened", item["evidence"])
+
     def test_redacts_obvious_secrets_from_task_and_evidence(self):
         item = self.store.record(
             "Use api_key=AIza1234567890123456789012345",
