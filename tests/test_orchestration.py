@@ -46,6 +46,19 @@ class OrchestrationTests(unittest.TestCase):
         self.assertEqual(result.status, "cancelled")
         self.assertEqual(self.calls, [])
 
+    def test_cancellation_during_handler_reports_unknown_outcome(self):
+        token = CancellationToken()
+        registry = CapabilityRegistry()
+
+        def side_effect(_args):
+            token.cancel()
+            return {"write_attempted": True}
+
+        registry.register(Capability("write_file", side_effect, requires_approval=False))
+        result = run_capability("write_file", {}, registry=registry, cancellation=token)
+        self.assertEqual(result.status, "unknown")
+        self.assertIn("may have occurred", result.detail)
+
     def test_handler_exception_does_not_leak_details(self):
         def broken(_args):
             raise RuntimeError("secret internal path")
