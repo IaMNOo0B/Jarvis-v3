@@ -43,6 +43,19 @@ def build_capability_registry(
             return TaskOutcome("open_url", status, result.detail)
         return TaskOutcome("open_url", "attempted", result.detail, "os_open_url_request_accepted")
 
+    def preflight_notepad_uia(_arguments: Mapping[str, object]) -> TaskOutcome:
+        # Read-only check: a missing helper must stop the task before Notepad launches.
+        if getattr(notepad_backend, "available", True) is False:
+            return TaskOutcome(
+                "preflight_notepad_uia", "failed",
+                "Windows PowerShell UI Automation is unavailable; Notepad was not launched.",
+            )
+        return TaskOutcome(
+            "preflight_notepad_uia", "verified",
+            "The fixed Notepad UI Automation helper is available.",
+            "powershell_uia_helper_available",
+        )
+
     def type_notepad_text(arguments: Mapping[str, object]) -> TaskOutcome:
         text = arguments.get("text")
         target = arguments.get("target")
@@ -94,6 +107,10 @@ def build_capability_registry(
     registry.register(Capability(
         "open_url", open_url, requires_approval=True,
         description="Open one explicit, validated HTTP(S) URL in allow-listed Chrome or Edge",
+    ))
+    registry.register(Capability(
+        "preflight_notepad_uia", preflight_notepad_uia, requires_approval=False,
+        description="Check that the fixed Windows PowerShell UI Automation helper is available before launching Notepad",
     ))
     registry.register(Capability(
         "type_notepad_text", type_notepad_text, requires_approval=True,
