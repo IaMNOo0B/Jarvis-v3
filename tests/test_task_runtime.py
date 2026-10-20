@@ -39,6 +39,45 @@ class TaskRuntimeTests(unittest.TestCase):
         self.assertEqual(result.status, "attempted")
         self.assertEqual(len(self.calls), 1)
 
+    def test_multi_app_plan_runs_registered_steps_in_order(self):
+        plan = self.planner.plan("open Notepad and Calculator")
+        result = execute_plan(plan, registry=self.registry, approved=True)
+        self.assertEqual(result.status, "attempted")
+        self.assertEqual([call[1]["app"] for call in self.calls], ["notepad", "calculator"])
+        self.assertEqual([step.target for step in result.step_results], ["notepad", "calculator"])
+        self.assertIn("visibility and readiness have not been verified", result.detail)
+
+    def test_multi_app_plan_stops_after_failure_and_reports_partial_side_effects(self):
+        registry = CapabilityRegistry()
+        called = []
+
+        def launch(args):
+            app = args["app"]
+            called.append(app)
+            if app == "calculator":
+                return TaskOutcome("launch_app", "failed", "Calculator launch failed.")
+            return TaskOutcome("launch_app", "attempted", "Launch request accepted.", "os_process_launch_accepted")
+
+        registry.register(Capability("launch_app", launch, requires_approval=True))
+        plan = self.planner.plan("open Notepad and open Calculator and open Paint")
+        result = execute_plan(plan, registry=registry, approved=True)
+        self.assertEqual(result.status, "partial")
+        self.assertEqual(called, ["notepad", "calculator"])
+        self.assertIn("1 of 3 app-launch requests were accepted", result.detail)
+        self.assertIn("check which apps opened", result.detail.casefold())
+
+    def test_invalid_multi_app_target_is_blocked_without_running(self):
+        plan = self.planner.plan("open Notepad and Calculator")
+        bad_steps = tuple(
+            type(step)(step.name, step.description, step.requires_approval, step.action, "powershell")
+            if step.target == "calculator" else step
+            for step in plan.steps
+        )
+        bad_plan = type(plan)(plan.original_request, plan.intent, bad_steps, plan.limitations)
+        result = execute_plan(bad_plan, registry=self.registry, approved=True)
+        self.assertEqual(result.status, "blocked")
+        self.assertEqual(self.calls, [])
+
     def test_research_uses_only_registered_handler(self):
         plan = self.planner.plan("research Wikipedia artificial intelligence")
         result = execute_plan(plan, registry=self.registry, arguments={"query": "artificial intelligence"})
