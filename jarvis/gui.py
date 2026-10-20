@@ -152,7 +152,7 @@ class JarvisWindow:
                 self._append("JARVIS", "No pending reminders.")
             else:
                 lines = [f"#{item.reminder_id} · {item.due_at} · {item.message}" for item in items]
-                self._append("JARVIS", "Pending reminders:\\n" + "\\n".join(lines))
+                self._append("JARVIS", "Pending reminders:\n" + "\n".join(lines))
             return True
         if lowered.startswith("/cancel-reminder "):
             raw_id = message.strip().split(maxsplit=1)[1]
@@ -199,7 +199,7 @@ class JarvisWindow:
                 self._append("JARVIS", "No saved memories.")
             else:
                 lines = [f"#{item.memory_id} · {item.content} (source: {item.source})" for item in items]
-                self._append("JARVIS", "Saved memories:\\n" + "\\n".join(lines))
+                self._append("JARVIS", "Saved memories:\n" + "\n".join(lines))
             return True
         if lowered.startswith("/forget "):
             raw_id = stripped.split(maxsplit=1)[1]
