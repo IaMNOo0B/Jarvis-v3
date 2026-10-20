@@ -12,7 +12,7 @@ from jarvis.memory import MemoryStore
 from jarvis.learning import LearningStore
 from jarvis.auto_learning import AutomaticLearning
 from jarvis.self_healing import RepairLedger
-from jarvis.task_planner import TaskPlanner
+from jarvis.task_planner import TaskPlanner, extract_research_query
 from jarvis.task_runtime import execute_plan
 from jarvis.capabilities import build_capability_registry
 from jarvis.research import PublicResearch, ResearchError, ResearchReport
@@ -494,13 +494,10 @@ class JarvisWindow:
             self._append("JARVIS", "Research request incomplete. Example: 'research Wikipedia artificial intelligence' or 'research GitHub agent framework'.")
             return
         if plan.intent in {"research_wikipedia", "research_github"}:
-            prefix_map = {
-                "research_wikipedia": ("research wikipedia ", "wiki research ", "wikipedia par research "),
-                "research_github": ("research github ", "github research ", "github par research "),
-            }
-            lowered = message.casefold().strip()
-            prefix = next(p for p in prefix_map[plan.intent] if lowered.startswith(p))
-            query = message.strip()[len(prefix):].strip()
+            query = extract_research_query(message, plan.intent)
+            if not query:
+                self._append("JARVIS", "I recognized a lookup request but could not safely extract its topic. Please rephrase the topic; no network request was made.")
+                return
             source = "wikipedia" if plan.intent == "research_wikipedia" else "github"
             try:
                 self.task_receipts.record_step(message, f"public {source.title()} lookup", "started", evidence="Explicit user-requested public lookup.")
