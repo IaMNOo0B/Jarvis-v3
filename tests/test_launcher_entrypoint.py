@@ -1,8 +1,22 @@
 import unittest
+from importlib.machinery import SourceFileLoader
+from importlib.util import module_from_spec, spec_from_loader
 from pathlib import Path
+from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def load_startup_launcher():
+    """Load the .pyw helpers without launching the Tk window or changing cwd."""
+    path = ROOT / "Start_JARVIS.pyw"
+    loader = SourceFileLoader("jarvis_startup_launcher_for_test", str(path))
+    spec = spec_from_loader(loader.name, loader)
+    module = module_from_spec(spec)
+    with patch("os.chdir"):
+        loader.exec_module(module)
+    return module
 
 
 class WindowsLauncherTests(unittest.TestCase):
@@ -23,6 +37,24 @@ class WindowsLauncherTests(unittest.TestCase):
         self.assertIn("First-time setup / repair environment", launcher)
         self.assertIn("Update JARVIS safely", launcher)
         self.assertIn("Run diagnostics", launcher)
+
+    def test_redacts_credentials_from_startup_diagnostics(self):
+        launcher = load_startup_launcher()
+        api_key = "AIza123456789012345678901234"
+        github_token = "ghp_abcdefghijklmnopqrstuvwxyz123456"
+        diagnostic = f"api_key={api_key} token={github_token} Bearer abc.def.ghi"
+        redacted = launcher._redact_diagnostic(diagnostic)
+        self.assertNotIn(api_key, redacted)
+        self.assertNotIn(github_token, redacted)
+        self.assertNotIn("abc.def.ghi", redacted)
+        self.assertIn("[REDACTED]", redacted)
+
+    def test_launcher_surfaces_errors_without_requiring_a_console(self):
+        launcher = (ROOT / "Start_JARVIS.pyw").read_text(encoding="utf-8")
+        self.assertIn("_report_startup_failure(exc)", launcher)
+        self.assertIn("MessageBoxW", launcher)
+        self.assertIn("startup-error.log", launcher)
+        self.assertIn("JARVIS.bat --menu", launcher)
 
 
 if __name__ == "__main__":
