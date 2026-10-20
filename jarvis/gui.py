@@ -11,7 +11,7 @@ from jarvis.reminders import ReminderStore, parse_natural_reminder
 from jarvis.memory import MemoryStore, is_sensitive_memory_request, parse_natural_remember_request
 from jarvis.learning import LearningStore
 from jarvis.auto_learning import AutomaticLearning
-from jarvis.self_healing import RepairLedger
+from jarvis.self_healing import RepairLedger, should_propose_desktop_repair
 from jarvis.task_planner import TaskPlanner, extract_research_query
 from jarvis.task_runtime import action_event_for_runtime, execute_plan
 from jarvis.capabilities import build_capability_registry
@@ -823,6 +823,27 @@ class JarvisWindow:
             self._record_activity("automatic_reflection", reflection.outcome, f"episode={reflection.episode.episode_id}")
         except (ValueError, OSError):
             self._record_activity("automatic_reflection", "failed", "action result was not recorded")
+        if should_propose_desktop_repair(outcome, detail):
+            try:
+                repair = self.repairs.propose(
+                    failure_summary="Unexpected desktop-action worker error; task content and internal details omitted.",
+                    proposed_change=(
+                        "Reproduce the failure using a fake adapter first. Inspect the registered capability dispatch "
+                        "and exception boundary, add a focused regression test, run the full test suite, then verify "
+                        "on real Windows. Do not blindly retry non-idempotent actions or modify live code automatically."
+                    ),
+                    source_ref="gui-desktop-action-failure",
+                )
+                self._record_activity("repair_proposal", "proposed", f"id={repair.repair_id}")
+                self._append(
+                    "JARVIS",
+                    f"Saved reviewable desktop diagnostic proposal #{repair.repair_id}. No code was changed automatically.",
+                )
+            except (ValueError, OSError):
+                self._record_activity(
+                    "repair_proposal", "not_saved",
+                    "Unexpected desktop failure remains visible; diagnostic proposal could not be stored.",
+                )
         self._append("JARVIS", detail)
         self._finish_work_controls()
         self.status.set({"action_verified": "Action: text entry and read-back verified", "action_accepted": "Action: launch requests accepted; visibility unverified", "action_partial": "Action: partially completed; check desktop before retrying", "action_unknown": "Action: outcome unknown; check desktop before retrying"}.get(outcome, "Action: not completed"))
