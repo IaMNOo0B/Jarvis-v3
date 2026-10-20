@@ -4,7 +4,7 @@ A Windows-first desktop AI assistant, built incrementally from a clean foundatio
 
 ## Project status
 
-**Early prototype — not a finished assistant.** Text chat, provider interfaces, secure credential integration, and a minimal GUI are under active development. Desktop app launching is limited to exact Notepad/Chrome requests with an explicit confirmation dialog. Persistent reminders (create/list/cancel and GUI notifications) and a provenance-aware local memory-store foundation are implemented. Memory is not yet exposed through chat commands. Voice, live UI Automation integration, installer, and end-to-end Windows verification are not complete. The UI Automation contract and fake-backend tests do not control the desktop yet.
+**Early prototype — not a finished assistant.** Text chat, provider interfaces, secure credential integration, and a minimal GUI are under active development. Desktop app launching is limited to exact Notepad/Chrome requests with an explicit confirmation dialog. Persistent reminders (create/list/cancel and GUI notifications) and a provenance-aware local memory-store foundation are implemented. Memory is exposed through explicit `/remember`, `/memories`, `/forget ID`, and confirmation-protected `/forget-all` commands. Voice, live UI Automation integration, installer, and end-to-end Windows verification are not complete. The UI Automation contract and fake-backend tests do not control the desktop yet.
 
 ## Start the GUI
 
@@ -16,6 +16,7 @@ Requirements: Windows, Python 3.12+, and Ollama installed and running with the c
 - Use **Check AI status** for a real generation check.
 - Enter exactly `open notepad` or `open chrome` to request an app launch. JARVIS asks for confirmation first. It only reports that Windows accepted the launch request; it does not yet verify that the app became visible.
 - Create a reminder with `/remind 2030-01-01T10:00:00+05:30 | Study`; list pending reminders with `/reminders`; cancel one with `/cancel-reminder ID`. The timestamp must include a timezone offset. Due reminders show an in-app notification while the GUI is open; there is no background service or notification guarantee while JARVIS is closed.
+- Save memory only when explicitly requested with `/remember I prefer concise answers`; view it with `/memories`; delete one with `/forget ID` (confirmation required); delete all with `/forget-all` (confirmation required). Memory is local and is not automatically injected into AI prompts yet.
 - If startup fails, launch `python Start_JARVIS.pyw` from a terminal to see Python diagnostics. This fallback is optional, not the normal workflow.
 
 The GUI starts with local Ollama. To use Gemini on Windows, click **Save Gemini key…**, enter the key into the masked prompt, then choose **Google Gemini** and click **Apply**. The key is stored only in Windows Credential Manager; JARVIS does not probe the key before saving it and does not display it back. Use **Check AI status** to make a real generation request. A key may still be invalid, restricted, or out of quota; status testing is what checks whether the provider can actually respond. Never paste API keys into chat or source files.
