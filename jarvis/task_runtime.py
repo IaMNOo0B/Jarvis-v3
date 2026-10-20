@@ -96,7 +96,7 @@ def execute_plan(
         step_arguments = dict(base_arguments)
         if step.target is not None:
             if plan.intent in {"launch_allowlisted_app", "launch_allowlisted_apps"}:
-                if step.target not in APP_EXECUTABLES:
+                if not isinstance(step.target, str) or step.target not in APP_EXECUTABLES:
                     return RuntimeResult(plan.intent, "blocked", "The app target is not allow-listed.", step_results=tuple(traces))
                 step_arguments["app"] = step.target
         elif is_batch:
@@ -117,8 +117,8 @@ def execute_plan(
                 accepted = sum(item.status in _CONTINUE_STATUSES for item in outcomes[:-1])
                 detail = (
                     f"Partial execution: {accepted} of {len(action_steps)} app-launch requests were accepted "
-                    f"before step {index + 1} ({step.target or step.name}) returned {outcome.status}. "
-                    f"{outcome.detail} Check which apps opened before retrying."
+                    f"before step {index + 1} ({step.target or step.name}) returned {outcome.status}; "
+                    f"all remaining steps were skipped. {outcome.detail} Check which apps opened before retrying."
                 )
                 return RuntimeResult(plan.intent, "partial", detail, outcome.evidence, outcome, tuple(traces))
             return RuntimeResult(plan.intent, outcome.status, outcome.detail, outcome.evidence, outcome, tuple(traces))
