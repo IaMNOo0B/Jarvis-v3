@@ -23,8 +23,8 @@ Sir types one natural-language message in the JARVIS window. JARVIS classifies t
 |---|---|---|
 | Conversation/provider | Text GUI; Ollama and explicit Gemini provider paths | Provider failure/timeout tests, clear status, no silent cloud fallback, live provider smoke tests |
 | Intent/planning | Deterministic supported-intent planner | Natural-language routing for known safe actions; clarify ambiguity; reject unknown actions |
-| Orchestration | Registered capability registry, planner-to-runtime bridge, GUI dispatch for bounded research, allow-listed app launch sequences, blank-Notepad typing workflow, Stop/Esc cancellation checkpoints | Integration regression tests, per-step plan journal, real Windows UI automation and verified postconditions |
-| Desktop | Allow-listed app launches and bounded multi-app sequences; narrow PowerShell UIA workflow for typing into a detected blank Notepad document with exact read-back | Real Windows smoke test and recorded evidence; extend semantic selectors to more apps/actions; no coordinate-only automation; keep the app registry and shell guard |
+| Orchestration | Registered capability registry, planner-to-runtime bridge, GUI dispatch for bounded research, allow-listed app launch sequences, blank-Notepad typing workflow, explicit URL navigation, Stop/Esc cancellation checkpoints | Integration regression tests, per-step plan journal, real Windows UI automation and verified postconditions |
+| Desktop | Allow-listed app launches/sequences; explicit validated HTTP(S) URL opening in Chrome/Edge; narrow PowerShell UIA workflow for typing into a detected blank Notepad document with exact read-back | Real Windows smoke test and recorded evidence; extend semantic selectors to more apps/actions; no coordinate-only automation; keep the app registry and shell guard |
 | Verification | UI action postcondition contract and task receipts | Each action supplies observable evidence; distinguish attempted/failed/unknown/verified; no fake success |
 | Permissions | Fail-closed SafetyGate for supported actions | Centralize every side effect through policy; approvals for external/destructive/irreversible actions; test bypass attempts |
 | Memory | SQLite provenance, explicit remember/list/forget | data migration and backup tests; retrieval rules; deletion coverage; no untrusted memory as instructions |
@@ -35,7 +35,7 @@ Sir types one natural-language message in the JARVIS window. JARVIS classifies t
 | Self-healing | Repair proposal/test receipt ledger | isolated worktree, patch diff, focused/full tests, health checks, rollback evidence; no silent live self-editing |
 | Voice | Not complete | wake-word, visible mic state, Hinglish STT, Hindi TTS, interruption/stop; text works without voice; target-PC tests |
 | Phone remote | Not complete | authenticated pairing, scoped commands, replay protection, expiry, revocation and unknown-outcome handling |
-| Browser/web | Not complete | explicit network boundary, domain allowlist/policy, page content treated as untrusted, per-action evidence |
+| Browser/web | Explicit HTTP(S) URL opening in allow-listed Chrome/Edge only; no page interaction | Add browser UI Automation with semantic selectors, explicit domain/network policy, page content treated as untrusted, per-action evidence; no inferred downloads/form submissions |
 | Proactivity | Not complete | opt-in schedule, daily cap, urgency rules, dismissal suppression, no unsolicited external side effects |
 | Security/privacy | secret storage and bounded activity journal | secret scans, egress tests, injection tests, data retention/forget audit, screenshot memory-only default, no telemetry |
 | Performance | Local-first target for RTX 2060 6 GB / 16 GB RAM | measure cold/warm latency, memory/VRAM and model throughput; enforce timeouts and memory guard; never claim unmeasured speed |
@@ -58,13 +58,13 @@ Sir types one natural-language message in the JARVIS window. JARVIS classifies t
 ### Gate A — Safe core
 - Wire the orchestration registry into chat/task dispatch.
 - Add typed task state and cancellation through GUI workers.
-- Add persistent per-step receipts and postcondition evidence contracts. (Step receipts now cover public research, bounded app-launch sequences and the Notepad text workflow; exact read-back is implemented, but live Windows evidence remains open.)
+- Add persistent per-step receipts and postcondition evidence contracts. (Step receipts now cover public research, bounded app-launch sequences, URL navigation (URL omitted from durable receipts), and the Notepad text workflow; exact read-back is implemented, but live Windows evidence remains open.)
 - Add adversarial, ambiguity, timeout, cancellation and secret-redaction tests.
 
 ### Gate B — Desktop vertical slice
 - A narrow Windows-only PowerShell UI Automation backend is wired behind the adapter for Notepad text entry into a detected blank document; input is passed as JSON over stdin to a fixed script, with `shell=False` and a bounded helper timeout.
 - Unit tests cover approval gating, adapter payload/allow-list limits, partial outcomes and exact read-back contract. Still run the real Windows smoke test: detect Notepad, focus a blank document, type a harmless string, read back document text, and capture the actual result.
-- Test Chrome only for safe navigation to an explicit URL after policy approval; never infer arbitrary downloads, credentials or form submissions.
+- An explicit-URL-only navigation capability is wired for allow-listed Chrome/Edge; test only navigation to the exact user-supplied HTTP(S) URL and report the process launch as attempted, not page-verified. Never infer arbitrary downloads, credentials, clicks or form submissions.
 - Run real Windows smoke tests; fake adapters remain unit tests, not proof of desktop support.
 
 ### Gate C — Resilience and knowledge
