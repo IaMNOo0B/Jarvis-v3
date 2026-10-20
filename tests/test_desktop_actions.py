@@ -5,6 +5,15 @@ from jarvis.desktop_actions import launch_allowlisted_app, launch_app_with_appro
 
 
 class DesktopLaunchTests(unittest.TestCase):
+    def test_natural_polite_and_hinglish_launch_phrases(self):
+        self.assertEqual(parse_app_launch_request("Can you please open Notepad for me?"), "notepad")
+        self.assertEqual(parse_app_launch_request("Jarvis, zara Chrome kholo"), "chrome")
+        self.assertEqual(parse_app_launch_request("Please start Chrome now"), "chrome")
+
+    def test_unknown_app_or_ambiguous_request_is_not_executed(self):
+        self.assertIsNone(parse_app_launch_request("please open calculator"))
+        self.assertIsNone(parse_app_launch_request("can you explain how Chrome works"))
+
     def test_exact_launch_phrases(self):
         for phrase, expected in (
             ("open notepad", "notepad"),
