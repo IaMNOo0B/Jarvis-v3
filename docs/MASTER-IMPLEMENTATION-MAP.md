@@ -58,7 +58,7 @@ Sir types one natural-language message in the JARVIS window. JARVIS classifies t
 ### Gate A — Safe core
 - Wire the orchestration registry into chat/task dispatch.
 - Add typed task state and cancellation through GUI workers.
-- Add persistent per-step receipts and postcondition evidence contracts. (Prototype now records bounded start/end outcomes for public research and allowlisted app launch; postcondition verification remains incomplete.)
+- Add persistent per-step receipts and postcondition evidence contracts. (Step receipts now cover public research, bounded app-launch sequences and the Notepad text workflow; exact read-back is implemented, but live Windows evidence remains open.)
 - Add adversarial, ambiguity, timeout, cancellation and secret-redaction tests.
 
 ### Gate B — Desktop vertical slice
@@ -87,7 +87,7 @@ Sir types one natural-language message in the JARVIS window. JARVIS classifies t
 - GUI multiline output formatting was corrected in the working branch.
 - Public research, archive, task receipts and reviewable learning/self-healing records exist as bounded prototype modules. Step receipts are now persisted for public research and allow-listed app launch sequences and surfaced in `/tasks`; Notepad text entry is wired to a fixed Windows PowerShell UIA helper that targets only a blank document and returns verified only after exact read-back. This is not evidence of a real Windows smoke test.
 - jarvis/orchestration.py now defines a fail-closed capability registry, approval gate, cancellation checkpoints and explicit evidence outcomes. Unit tests were added in tests/test_orchestration.py.
-- GUI dispatch now routes explicit Wikipedia/GitHub research, allow-listed app launch sequences, and the fixed Notepad text-entry workflow through the registered capability registry and task runtime. Stop/Esc cancellation is wired to chat generation, research and provider health checks; launch cancellation warns that the app may already have opened. Cancellation cannot forcibly interrupt an in-flight provider/network call; it discards the result at the next safe boundary.
+- GUI dispatch now routes explicit Wikipedia/GitHub research, allow-listed app launch sequences, and the fixed Notepad text-entry workflow through the registered capability registry and task runtime. Automatic reflection supports `action_verified`, `action_partial`, and `action_unknown` without silently treating them as generic failures. Stop/Esc cancellation is wired to chat generation, research and provider health checks; launch cancellation warns that the app may already have opened. Cancellation cannot forcibly interrupt an in-flight provider/network call; it discards the result at the next safe boundary.
 - Automated CI passed for commit `308460074dd7fb482ff238ba3654a46170d779ca` (Python source compilation, GUI launcher compilation, and the standard-library test suite). Later documentation commits require their own CI result. The feature branch has not been verified on a real Windows PC. Stop/Esc cancellation is wired into chat generation, research, and provider health-check workers at safe boundaries; in-flight provider/network calls are not forcibly interrupted. App-launch cancellation after launch begins is recorded as `action_unknown`, not `action_failed`, because the app may already have opened. Accepted launch requests still do not prove that a window became visible.
 - PR #2 remains draft/open/unmerged; do not install this branch as a final release.
 
