@@ -86,7 +86,7 @@ class JarvisWindow:
         self.send_button = ttk.Button(compose, text="Send", command=self.send)
         self.send_button.pack(side="right")
         self.root.bind("<Escape>", self._escape_stop)
-        ttk.Label(shell, text="Stop / Esc cancels at safe boundaries. Explicit allow-listed app launches run only for requested apps. No microphone is active.").pack(anchor="w", pady=(8, 0))
+        ttk.Label(shell, text="Stop / Esc cancels at safe boundaries. Desktop actions are limited to explicit allow-listed requests. No microphone is active.").pack(anchor="w", pady=(8, 0))
         self._append("JARVIS", "Ready. Ask a question or use /help. Try “open Notepad” or “Notepad kholo” to request an approved app launch.")
         self.entry.focus_set()
         self.root.protocol("WM_DELETE_WINDOW", self.close)
@@ -408,6 +408,7 @@ class JarvisWindow:
             "action_accepted": "OS accepted action; final state unverified",
             "action_failed": "action failed",
             "action_partial": "partially completed; check state before retrying",
+            "action_verified": "action completed with verified postcondition",
             "action_unknown": "outcome unknown; check before retrying",
             "provider_failed": "provider failed",
             "research_succeeded": "public-source lookup returned results",
@@ -601,6 +602,48 @@ class JarvisWindow:
         if plan.intent == "invalid_research":
             self._append("JARVIS", "Research request incomplete. Example: 'research Wikipedia artificial intelligence' or 'research GitHub agent framework'.")
             return
+        if plan.intent == "notepad_type_text":
+            try:
+                self.task_receipts.record_step(
+                    message, "Notepad text workflow", "started",
+                    evidence="Explicit request to enter text into a blank Notepad document.",
+                )
+            except (ValueError, OSError):
+                self._record_activity("task_step_receipt", "not_saved", "Notepad workflow still proceeds; started receipt could not be stored")
+            token = self._begin_work()
+            self.status.set("Action: opening Notepad and verifying typed text…")
+
+            def notepad_type_work():
+                runtime = None
+                try:
+                    token.raise_if_cancelled()
+                    runtime = execute_plan(
+                        plan,
+                        registry=self.capability_registry,
+                        approved=True,
+                        cancellation=token,
+                    )
+                    self._record_runtime_steps(message, runtime.step_results)
+                    if token.cancelled:
+                        detail = runtime.detail if runtime is not None else "The Notepad workflow may have changed the desktop."
+                        event = ("action_unknown", f"Stop requested during Notepad workflow. {detail} Inspect the desktop before retrying.")
+                    elif runtime.status == "verified":
+                        event = ("action_verified", runtime.detail)
+                    elif runtime.status == "partial":
+                        event = ("action_partial", runtime.detail)
+                    elif runtime.status == "unknown":
+                        event = ("action_unknown", runtime.detail)
+                    else:
+                        event = ("action_failed", runtime.detail)
+                except OperationCancelled:
+                    self._post_event("cancelled", message)
+                    return
+                except Exception:
+                    event = ("action_failed", "Unexpected Notepad automation error. Inspect the desktop before retrying.")
+                self._post_event("action", (event[0], event[1], message))
+
+            threading.Thread(target=notepad_type_work, daemon=True).start()
+            return
         if plan.intent in {"research_wikipedia", "research_github"}:
             query = extract_research_query(message, plan.intent)
             if not query:
@@ -736,10 +779,10 @@ class JarvisWindow:
     def _finish_action(self, outcome: str, detail: str, task: str) -> None:
         if self.closing:
             return
-        activity_status = {"action_accepted": "accepted", "action_failed": "failed", "action_partial": "partial", "action_unknown": "unknown"}.get(outcome, "failed")
+        activity_status = {"action_verified": "verified", "action_accepted": "accepted", "action_failed": "failed", "action_partial": "partial", "action_unknown": "unknown"}.get(outcome, "failed")
         self._record_activity("desktop_launch", activity_status)
         try:
-            self.task_receipts.record_step(task, "launch allowlisted app sequence", {"action_accepted": "attempted", "action_failed": "failed", "action_partial": "partial", "action_unknown": "unknown"}.get(outcome, "failed"), evidence=detail)
+            self.task_receipts.record_step(task, "desktop action sequence", {"action_verified": "verified", "action_accepted": "attempted", "action_failed": "failed", "action_partial": "partial", "action_unknown": "unknown"}.get(outcome, "failed"), evidence=detail)
         except (ValueError, OSError):
             self._record_activity("task_step_receipt", "not_saved", "launch outcome remains visible but step receipt was not saved")
         try:
@@ -754,7 +797,7 @@ class JarvisWindow:
             self._record_activity("automatic_reflection", "failed", "action result was not recorded")
         self._append("JARVIS", detail)
         self._finish_work_controls()
-        self.status.set({"action_accepted": "Action: launch requests accepted; visibility unverified", "action_partial": "Action: partially completed; check desktop before retrying", "action_unknown": "Action: outcome unknown; check desktop before retrying"}.get(outcome, "Action: not completed"))
+        self.status.set({"action_verified": "Action: text entry and read-back verified", "action_accepted": "Action: launch requests accepted; visibility unverified", "action_partial": "Action: partially completed; check desktop before retrying", "action_unknown": "Action: outcome unknown; check desktop before retrying"}.get(outcome, "Action: not completed"))
 
     def _finish_response(self, task: str, response: str) -> None:
         if self.closing:
