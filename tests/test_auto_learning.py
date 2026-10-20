@@ -26,6 +26,24 @@ class AutomaticLearningTests(unittest.TestCase):
         result = self.learning.reflect("Open Notepad", outcome="action_accepted")
         self.assertIn("visibility is unverified", result.note)
 
+    def test_verified_ui_postcondition_is_reflected_narrowly(self):
+        result = self.learning.reflect(
+            "Type text in Notepad", outcome="action_verified",
+            evidence="Notepad read-back exactly matched requested text.",
+        )
+        self.assertEqual(result.episode.outcome, "action_verified")
+        self.assertEqual(result.confidence, "high")
+        self.assertIn("specific UI postcondition", result.note)
+        self.assertIn("broader user-goal completion is not implied", result.note)
+
+    def test_partial_and_unknown_actions_never_claim_success(self):
+        partial = self.learning.reflect("Open apps", outcome="action_partial")
+        unknown = self.learning.reflect("Type in Notepad", outcome="action_unknown")
+        self.assertIn("partially ran", partial.note)
+        self.assertIn("may have occurred", unknown.note)
+        self.assertNotEqual(partial.outcome, "action_verified")
+        self.assertNotEqual(unknown.outcome, "action_verified")
+
     def test_failure_is_recorded(self):
         result = self.learning.reflect("Search the web", outcome="provider_failed")
         self.assertEqual(result.episode.outcome, "provider_failed")

@@ -29,6 +29,19 @@ def _safe_ref(value: str) -> str:
     return value
 
 
+def should_propose_desktop_repair(outcome: str, detail: str) -> bool:
+    """Return true only for unexpected worker exceptions, not normal preconditions."""
+    if outcome != "action_failed" or not isinstance(detail, str):
+        return False
+    normalized = detail.casefold()
+    unexpected_markers = (
+        "unexpected notepad automation error",
+        "unexpected browser navigation error",
+        "unexpected launch error",
+    )
+    return any(marker in normalized for marker in unexpected_markers)
+
+
 @dataclass(frozen=True)
 class RepairProposal:
     repair_id: int

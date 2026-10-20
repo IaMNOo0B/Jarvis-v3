@@ -6,7 +6,7 @@ Execution remains behind the GUI approval path and the action registry.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from jarvis.desktop_actions import parse_app_launch_request
+from jarvis.desktop_actions import parse_app_launch_batch, parse_app_launch_request, parse_notepad_type_request, parse_explicit_url_request
 
 
 @dataclass(frozen=True)
@@ -15,6 +15,8 @@ class PlanStep:
     description: str
     requires_approval: bool
     action: str | None = None
+    target: str | None = None
+    input_text: str | None = None
 
 
 @dataclass(frozen=True)
@@ -32,40 +34,160 @@ class TaskPlanner:
         text = request.strip()
         if not text:
             return TaskPlan(text, "empty", ())
+        text_to_type = parse_notepad_type_request(text)
+        if text_to_type is not None:
+            return TaskPlan(
+                text, "notepad_type_text",
+                (
+                    PlanStep("authorize", "Treat Sir's explicit request to enter this text in Notepad as one-request authorization.", False),
+                    PlanStep("preflight", "Check that the fixed Windows PowerShell UI Automation helper is available before opening Notepad.", False, "preflight_notepad_uia"),
+                    PlanStep("execute", "Launch the allow-listed Notepad application.", True, "launch_app", "notepad"),
+                    PlanStep(
+                        "execute", "Type the requested text only into a detected blank Notepad document, then read it back.",
+                        True, "type_notepad_text", "blank document", text_to_type,
+                    ),
+                    PlanStep("verify", "Report verified only if UI Automation reads back the exact requested text.", False),
+                ),
+                (
+                    "Typing is restricted to a detected blank Notepad document; existing text is not replaced.",
+                    "Live Windows UI Automation must be available; this path has not been verified on every Windows/Notepad version.",
+                ),
+            )
+        url_request = parse_explicit_url_request(text)
+        if url_request is not None:
+            browser, url = url_request
+            return TaskPlan(
+                text, "open_url",
+                (
+                    PlanStep("authorize", "Treat the explicit request to open this URL in the named/default browser as one-request authorization.", False),
+                    PlanStep("execute", f"Open the supplied HTTP(S) URL in allow-listed {browser.title()}.", True, "open_url", browser, url),
+                    PlanStep("verify", "Report that Windows accepted the navigation request; page load and page contents are not verified.", False),
+                ),
+                (
+                    "Only explicit HTTP(S) URLs are accepted; embedded credentials and non-web schemes are rejected.",
+                    "This opens the page only. It does not click, download, submit forms, or verify page content.",
+                ),
+            )
+        apps = parse_app_launch_batch(text)
+        if apps:
+            steps = [PlanStep("authorize", "Treat Sir's explicit compound launch request as authorization for these listed app launches.", False)]
+            steps.extend(
+                PlanStep("execute", f"Launch allow-listed app {app.title()}.", True, "launch_app", app)
+                for app in apps
+            )
+            steps.append(PlanStep("verify", "Report each operating-system launch result; app visibility is not guaranteed.", False))
+            return TaskPlan(
+                text, "launch_allowlisted_apps", tuple(steps),
+                ("Apps are launched sequentially. If a launch fails, later launches are skipped; earlier launches may already have occurred.",
+                 "A successful process-launch request does not prove the app window is visible or ready."),
+            )
         app = parse_app_launch_request(text)
         if app:
             return TaskPlan(
                 text, "launch_allowlisted_app",
                 (
-                    PlanStep("confirm", f"Ask Sir to approve launching {app.title()}.", True),
-                    PlanStep("execute", f"Launch allow-listed app {app.title()} without a shell.", True, "launch_app"),
+                    PlanStep("authorize", f"Treat Sir's explicit request to open {app.title()} as one-request authorization.", False),
+                    PlanStep("execute", f"Launch allow-listed app {app.title()} without a shell or another confirmation dialog.", True, "launch_app", app),
                     PlanStep("verify", "Report the operating-system launch result; app visibility is not guaranteed.", False),
                 ),
-                ("Only Notepad and Chrome are currently allow-listed.",),
+                ("A successful process-launch request does not prove the app window is visible or ready.",),
             )
         lowered = text.casefold()
         prefixes = (
             ("research wikipedia ", "research_wikipedia", "wikipedia"),
             ("wiki research ", "research_wikipedia", "wikipedia"),
             ("wikipedia par research ", "research_wikipedia", "wikipedia"),
+            ("look up on wikipedia ", "research_wikipedia", "wikipedia"),
+            ("find on wikipedia ", "research_wikipedia", "wikipedia"),
             ("research github ", "research_github", "github"),
             ("github research ", "research_github", "github"),
             ("github par research ", "research_github", "github"),
+            ("look up on github ", "research_github", "github"),
+            ("find on github ", "research_github", "github"),
         )
         for prefix, intent, source in prefixes:
             if lowered.startswith(prefix):
                 query = text[len(prefix):].strip()
                 if not query:
                     return TaskPlan(text, "invalid_research", (), ("Add a topic after the research source.",))
-                return TaskPlan(
-                    text, intent,
-                    (
-                        PlanStep("fetch", f"Query {source.title()}'s fixed public search API.", False, intent),
-                        PlanStep("cite", "Show source URLs, bounded snippets and evidence limitations.", False),
-                    ),
-                )
+                return TaskPlan(text, intent, (
+                    PlanStep("fetch", f"Query {source.title()}'s fixed public search API.", False, intent),
+                    PlanStep("cite", "Show source URLs, bounded snippets and evidence limitations.", False),
+                ))
+
+        generic_lookup_prefixes = (
+            "research ", "look up ", "search for ", "find information about ",
+            "find out about ", "can you research ",
+            "can you find information about ", "please research ",
+            "please look up ", "please search for ",
+        )
+        for prefix in generic_lookup_prefixes:
+            if lowered.startswith(prefix):
+                query = text[len(prefix):].strip()
+                if query.casefold().startswith("on wikipedia "):
+                    query = query[len("on wikipedia "):].strip()
+                if query.casefold().startswith("on github "):
+                    query = query[len("on github "):].strip()
+                    if query:
+                        return TaskPlan(text, "research_github", (
+                            PlanStep("fetch", "Query GitHub's fixed public repository API.", False, "research_github"),
+                            PlanStep("cite", "Show repository metadata, URLs and evidence limitations.", False),
+                        ))
+                if query.casefold().startswith("github "):
+                    query = query[len("github "):].strip()
+                    if query:
+                        return TaskPlan(text, "research_github", (
+                            PlanStep("fetch", "Query GitHub's fixed public repository API.", False, "research_github"),
+                            PlanStep("cite", "Show repository metadata, URLs and evidence limitations.", False),
+                        ))
+                if not query:
+                    return TaskPlan(text, "invalid_research", (), ("Add a topic to look up.",))
+                return TaskPlan(text, "research_wikipedia", (
+                    PlanStep("fetch", "Query Wikipedia's fixed public search API.", False, "research_wikipedia"),
+                    PlanStep("cite", "Show source URLs, bounded snippets and evidence limitations.", False),
+                ))
         return TaskPlan(
             text, "chat",
             (PlanStep("answer", "Use the configured AI provider and relevant local reference material.", False),),
             ("No unsupported desktop or external action will be inferred from an ordinary chat request.",),
         )
+
+
+def extract_research_query(request: str, intent: str) -> str:
+    """Extract only the topic text for an already-classified public lookup."""
+    text = request.strip()
+    lowered = text.casefold()
+    prefixes = {
+        "research_wikipedia": (
+            "research wikipedia ", "wiki research ", "wikipedia par research ",
+            "look up on wikipedia ", "find on wikipedia ", "research ",
+            "look up ", "search for ", "find information about ", "find out about ",
+            "tell me about ", "can you research ", "can you find information about ",
+            "please research ", "please look up ", "please search for ",
+        ),
+        "research_github": (
+            "research github ", "github research ", "github par research ",
+            "look up on github ", "find on github ",
+        ),
+    }
+    for prefix in prefixes.get(intent, ()):
+        if lowered.startswith(prefix):
+            query = text[len(prefix):].strip()
+            if intent == "research_wikipedia" and query.casefold().startswith("on wikipedia "):
+                query = query[len("on wikipedia "):].strip()
+            if intent == "research_github" and query.casefold().startswith("on github "):
+                query = query[len("on github "):].strip()
+            return query
+    if intent == "research_github":
+        for prefix in (
+            "search for ", "find information about ", "look up ", "research ",
+            "please search for ", "please research ", "please look up ",
+            "can you research ", "can you find information about ",
+        ):
+            if lowered.startswith(prefix):
+                query = text[len(prefix):].strip()
+                if query.casefold().startswith("github "):
+                    return query[len("github "):].strip()
+                if query.casefold().startswith("on github "):
+                    return query[len("on github "):].strip()
+    return ""
