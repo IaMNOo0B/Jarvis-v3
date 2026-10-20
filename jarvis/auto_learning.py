@@ -16,10 +16,10 @@ Outcome = Literal["response_generated", "action_accepted", "action_failed", "pro
 
 def redact_task(text: str) -> str:
     """Reduce obvious credential leakage in the automatically stored task label."""
-    text = re.sub(r"(?i)\\b(api[_ -]?key|token|password|passwd|secret)\\s*[:=]\\s*[^\\s,;]+", r"\\1=[REDACTED]", text)
-    text = re.sub(r"\\bAIza[0-9A-Za-z_-]{20,}\\b", "[REDACTED_API_KEY]", text)
-    text = re.sub(r"\\bAQ\\.[0-9A-Za-z._-]{30,}", "[REDACTED_API_KEY]", text)
-    text = re.sub(r"\\bgh[pousr]_[A-Za-z0-9]{20,}\\b", "[REDACTED_TOKEN]", text)
+    text = re.sub(r"(?i)\b(api[_ -]?key|token|password|passwd|secret)\s*[:=]\s*[^\s,;]+", r"\1=[REDACTED]", text)
+    text = re.sub(r"\bAIza[0-9A-Za-z_-]{20,}\b", "[REDACTED_API_KEY]", text)
+    text = re.sub(r"\bAQ\.[0-9A-Za-z._-]{30,}", "[REDACTED_API_KEY]", text)
+    text = re.sub(r"\bgh[pousr]_[A-Za-z0-9]{20,}\b", "[REDACTED_TOKEN]", text)
     return text[:1000]
 
 
