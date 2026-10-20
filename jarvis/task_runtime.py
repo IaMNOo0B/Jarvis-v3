@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from typing import Mapping
 
 from jarvis.cancellation import CancellationToken
-from jarvis.desktop_actions import APP_EXECUTABLES, validate_http_url
+from jarvis.desktop_actions import APP_EXECUTABLES, is_supported_notepad_text, validate_http_url
 from jarvis.orchestration import CapabilityRegistry, TaskOutcome, run_capability
 from jarvis.task_planner import TaskPlan
 
@@ -121,9 +121,7 @@ def execute_plan(
             tuple(step.action for step in action_steps) != expected
             or action_steps[0].target != "notepad"
             or action_steps[1].target != "blank document"
-            or not isinstance(action_steps[1].input_text, str)
-            or not action_steps[1].input_text.strip()
-            or len(action_steps[1].input_text) > 2000
+            or not is_supported_notepad_text(action_steps[1].input_text)
         ):
             return RuntimeResult(plan.intent, "blocked", "The Notepad plan is malformed; no action was run.")
     elif tuple(step.action for step in action_steps) != expected:
