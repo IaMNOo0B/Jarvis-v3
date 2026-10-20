@@ -14,12 +14,18 @@ class LaunchResult:
 
 
 def parse_app_launch_request(message: str) -> str | None:
-    """Recognize only exact, simple launch phrases for two allow-listed apps."""
+    """Recognize narrow English/Hinglish launch phrases for two allow-listed apps."""
     words = message.strip().casefold().split()
-    if len(words) != 2 or words[0] not in {"open", "launch", "start"}:
-        return None
-    if words[1] in {"notepad", "chrome"}:
-        return words[1]
+    if len(words) == 2:
+        if words[0] in {"open", "launch", "start"} and words[1] in {"notepad", "chrome"}:
+            return words[1]
+        if words[0] in {"kholo", " kholo"} and words[1] in {"notepad", "chrome"}:
+            return words[1]
+        if words[0] in {"notepad", "chrome"} and words[1] in {"kholo", "khol", "open"}:
+            return words[0]
+    if len(words) == 3 and words[0] in {"jarvis", "please"}:
+        if words[1] in {"open", "launch", "start"} and words[2] in {"notepad", "chrome"}:
+            return words[2]
     return None
 
 
