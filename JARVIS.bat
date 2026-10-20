@@ -1,7 +1,11 @@
 @echo off
 setlocal EnableExtensions
 cd /d "%~dp0"
-title JARVIS v3 - One-Click Control
+title JARVIS v3 - One-Click Launcher
+
+rem Double-click launches immediately. Pass --menu for maintenance tools.
+if /i "%~1"=="--menu" goto menu
+goto start
 
 :menu
 cls
