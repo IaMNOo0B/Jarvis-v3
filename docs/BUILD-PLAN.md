@@ -54,8 +54,9 @@ This is a target layout, not a claim that these components already exist. Introd
 **Exit:** fake-provider tests pass; local-model and cloud-provider checks are separately recorded when actually run.
 
 ### M4 — Windows desktop actions
-- [ ] App registry and deterministic verb-object intent handling.
+- [x] App registry and deterministic verb-object routing for allow-listed launches, bounded launch sequences, Notepad typing, and explicit URL navigation.
 - [x] Define a UI Automation-first adapter contract and allow-listed app/action registry; wire a narrow Windows PowerShell adapter for blank-Notepad text entry with exact read-back verification (real Windows smoke test remains open).
+- [x] Wire an explicit HTTP(S)-only URL opener for Chrome/Edge using a fixed executable and `shell=False`; it reports the OS launch as attempted, not page-load verified.
 - [ ] Extend semantic UI Automation beyond the narrow Notepad text-entry workflow; do not introduce coordinate-only desktop automation.
 - [ ] Shell guard, visible activity/status, cancellation, and postcondition checks in live desktop integration.
 - [ ] Screenshot/image data held in memory only unless the user explicitly requests otherwise.
