@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Mapping
 
-from jarvis.desktop_actions import launch_app_with_approval
+from jarvis.desktop_actions import APP_EXECUTABLES, launch_app_with_approval
 from jarvis.orchestration import Capability, CapabilityRegistry, TaskOutcome
 from jarvis.research import PublicResearch
 
@@ -15,8 +15,9 @@ def build_capability_registry(research: PublicResearch) -> CapabilityRegistry:
 
     def launch(arguments: Mapping[str, object]) -> TaskOutcome:
         app = arguments.get("app")
-        if not isinstance(app, str) or app.casefold() not in {"notepad", "chrome"}:
+        if not isinstance(app, str) or app.strip().casefold() not in APP_EXECUTABLES:
             return TaskOutcome("launch_app", "blocked", "App is not on the allow-list.")
+        app = app.strip().casefold()
         result = launch_app_with_approval(app, user_approved=True)
         if not result.success:
             return TaskOutcome("launch_app", "failed", result.detail)
@@ -40,7 +41,7 @@ def build_capability_registry(research: PublicResearch) -> CapabilityRegistry:
             report,
         )
 
-    registry.register(Capability("launch_app", launch, requires_approval=True, description="Launch Notepad or Chrome"))
+    registry.register(Capability("launch_app", launch, requires_approval=True, description="Launch a fixed allow-listed Windows app"))
     registry.register(Capability("research_wikipedia", lambda args: research_source("wikipedia", "research_wikipedia", args), requires_approval=False, description="Search Wikipedia's public API"))
     registry.register(Capability("research_github", lambda args: research_source("github", "research_github", args), requires_approval=False, description="Search GitHub repository metadata"))
     return registry
