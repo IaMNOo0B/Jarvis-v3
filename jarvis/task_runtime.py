@@ -113,6 +113,12 @@ def execute_plan(
         traces.append(RuntimeStepResult(step.name, outcome.status, outcome.detail, outcome.evidence, step.target))
 
         if outcome.status not in _CONTINUE_STATUSES:
+            for remaining in action_steps[index + 1:]:
+                traces.append(RuntimeStepResult(
+                    remaining.name, "skipped",
+                    "Skipped because an earlier step did not complete.",
+                    "none", remaining.target,
+                ))
             if is_batch and any(item.status in _CONTINUE_STATUSES for item in outcomes[:-1]):
                 accepted = sum(item.status in _CONTINUE_STATUSES for item in outcomes[:-1])
                 detail = (
