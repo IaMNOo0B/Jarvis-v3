@@ -300,6 +300,17 @@ def launch_allowlisted_app(app_name: str) -> LaunchResult:
     return LaunchResult(True, app, f"Windows accepted the launch request for {app.title()}. App visibility has not been verified.")
 
 
+def is_supported_notepad_text(value: object) -> bool:
+    """Apply the same 2000 UTF-16-code-unit limit used by the Windows helper."""
+    if not isinstance(value, str) or not value.strip() or len(value) > 2000 or "\\x00" in value:
+        return False
+    try:
+        utf16_units = len(value.encode("utf-16-le", errors="strict")) // 2
+    except UnicodeEncodeError:
+        return False
+    return utf16_units <= 2000
+
+
 def parse_notepad_type_request(message: str) -> str | None:
     """Parse explicit requests to place provided text in a blank Notepad document."""
     import re
@@ -336,6 +347,6 @@ def parse_notepad_type_request(message: str) -> str | None:
         # Do not absorb a second apparent command into a typing payload. The
         # user can quote the intended literal text to disambiguate it.
         return None
-    if not captured or len(captured) > 2000:
+    if not is_supported_notepad_text(captured):
         return None
     return captured
