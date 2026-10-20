@@ -602,6 +602,43 @@ class JarvisWindow:
         if plan.intent == "invalid_research":
             self._append("JARVIS", "Research request incomplete. Example: 'research Wikipedia artificial intelligence' or 'research GitHub agent framework'.")
             return
+        if plan.intent == "open_url":
+            # URLs can contain temporary tokens or other private query data; keep
+            # the destination out of durable task/learning receipts.
+            history_task = "Browser navigation request (URL omitted)"
+            try:
+                self.task_receipts.record_step(
+                    history_task, "browser navigation", "started",
+                    evidence="Explicit request to open one supplied HTTP(S) URL in an allow-listed browser.",
+                )
+            except (ValueError, OSError):
+                self._record_activity("task_step_receipt", "not_saved", "Browser request still proceeds; started receipt could not be stored")
+            token = self._begin_work()
+            self.status.set("Action: opening supplied URL in browser…")
+
+            def url_open_work():
+                try:
+                    token.raise_if_cancelled()
+                    runtime = execute_plan(
+                        plan,
+                        registry=self.capability_registry,
+                        approved=True,
+                        cancellation=token,
+                    )
+                    self._record_runtime_steps(history_task, runtime.step_results)
+                    event = action_event_for_runtime(runtime)
+                    if event[0] == "cancelled":
+                        self._post_event("cancelled", history_task)
+                        return
+                except OperationCancelled:
+                    self._post_event("cancelled", history_task)
+                    return
+                except Exception:
+                    event = ("action_failed", "Unexpected browser navigation error. No further action was taken.")
+                self._post_event("action", (event[0], event[1], history_task))
+
+            threading.Thread(target=url_open_work, daemon=True).start()
+            return
         if plan.intent == "notepad_type_text":
             # Text supplied for typing may be private. Keep the request's content
             # out of durable task/learning receipts; the live GUI transcript is in-memory.
