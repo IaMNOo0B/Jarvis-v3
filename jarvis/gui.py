@@ -20,6 +20,7 @@ from jarvis.research_archive import ResearchArchive
 from jarvis.activity import ActivityJournal
 from jarvis.task_receipts import TaskReceiptStore
 from jarvis.cancellation import CancellationToken, OperationCancelled
+from jarvis.source_inspection import inspect_source_tree, trace_symbol
 
 from jarvis.chat_service import ChatService
 from jarvis.knowledge_base import KnowledgeBase
@@ -376,7 +377,7 @@ class JarvisWindow:
     def _handle_help_command(self, message: str) -> bool:
         if message.strip().casefold() != "/help":
             return False
-        self._append("JARVIS", "Supported features and commands:\n- Normal messages: chat with the selected provider\n- Open allow-listed apps by name; chain up to five with 'and' for sequential launch. Use 'open Notepad and type Hello Sir' or 'type Hello Sir in Notepad' to enter text only into a detected blank Notepad document and verify exact read-back\n- Find/research/look up a topic: bounded public Wikipedia search; mention GitHub to search repository metadata\n- Open an explicit HTTP(S) URL in Chrome by default or Edge with 'open https://example.com in Edge'; only the supplied URL is opened, and page load/content are not verified\n- /tasks: recent task receipts\n- /clear-tasks: delete task receipts after confirmation\n- /research-history: recent archived research\n- Natural reminders: 'Remind me in 20 minutes to study' or 'Remind me tomorrow at 8:30 PM to study'; /remind TIME | MESSAGE, /reminders, /cancel-reminder ID\n- Natural memory: 'Remember that I prefer concise answers', 'What do you remember about me?', or 'Forget that I prefer concise answers' (deletion is confirmed); /remember TEXT, /memories, /forget ID, /forget-all\n- /experiences, /skills, /learn TRIGGER | INSTRUCTIONS, /approve-skill ID, /reject-skill ID\n- /repairs: inspect recent reviewable diagnostic proposals; nothing is auto-applied\n- Check AI status: performs a real provider generation check\nSupported actions: allow-listed app launches, bounded multi-app sequences, explicit HTTP(S) URL opening, public research, and Notepad text entry into a detected blank document with exact read-back when Windows UI Automation is available. URL navigation only asks the browser to open the supplied address; it does not click, download or submit forms, and page load is unverified. The Notepad typing path requires Windows PowerShell and UI Automation; it has not had a real-Windows smoke test. Existing text is not replaced. Arbitrary-window typing, browser automation and broad desktop automation remain unsupported. Stop cannot forcibly interrupt an in-flight provider/network call; research is not independent fact verification; voice is not implemented.")
+        self._append("JARVIS", "Supported features and commands:\n- Normal messages: chat with the selected provider\n- Open allow-listed apps by name; chain up to five with 'and' for sequential launch. Use 'open Notepad and type Hello Sir' or 'type Hello Sir in Notepad' to enter text only into a detected blank Notepad document and verify exact read-back\n- Find/research/look up a topic: bounded public Wikipedia search; mention GitHub to search repository metadata\n- Open an explicit HTTP(S) URL in Chrome by default or Edge with 'open https://example.com in Edge'; only the supplied URL is opened, and page load/content are not verified\n- /tasks: recent task receipts\n- /clear-tasks: delete task receipts after confirmation\n- /research-history: recent archived research\n- Natural reminders: 'Remind me in 20 minutes to study' or 'Remind me tomorrow at 8:30 PM to study'; /remind TIME | MESSAGE, /reminders, /cancel-reminder ID\n- Natural memory: 'Remember that I prefer concise answers', 'What do you remember about me?', or 'Forget that I prefer concise answers' (deletion is confirmed); /remember TEXT, /memories, /forget ID, /forget-all\n- /experiences, /skills, /learn TRIGGER | INSTRUCTIONS, /approve-skill ID, /reject-skill ID\n- /repairs: inspect recent reviewable diagnostic proposals; nothing is auto-applied\n- /inspect-source [symbol]: inspect JARVIS Python source statically and trace exact symbol definitions/call sites without executing code\n- Check AI status: performs a real provider generation check\nSupported actions: allow-listed app launches, bounded multi-app sequences, explicit HTTP(S) URL opening, public research, and Notepad text entry into a detected blank document with exact read-back when Windows UI Automation is available. URL navigation only asks the browser to open the supplied address; it does not click, download or submit forms, and page load is unverified. The Notepad typing path requires Windows PowerShell and UI Automation; it has not had a real-Windows smoke test. Existing text is not replaced. Arbitrary-window typing, browser automation and broad desktop automation remain unsupported. Stop cannot forcibly interrupt an in-flight provider/network call; research is not independent fact verification; voice is not implemented.")
         return True
 
     def _handle_repair_command(self, message: str) -> bool:
@@ -535,6 +536,53 @@ class JarvisWindow:
             return True
         return False
 
+    def _handle_source_inspection_command(self, message: str) -> bool:
+        stripped = message.strip()
+        lowered = stripped.casefold()
+        if lowered != "/inspect-source" and not lowered.startswith("/inspect-source "):
+            return False
+        parts = stripped.split(maxsplit=1)
+        symbol = parts[1].strip() if len(parts) == 2 else ""
+        if symbol.startswith("/") or "\\\\" in symbol or len(symbol) > 200:
+            self._append("JARVIS", "Usage: /inspect-source [symbol name]. The inspection root is fixed to the JARVIS project; arbitrary paths are not accepted.")
+            return True
+        project_root = Path(__file__).resolve().parent.parent
+        try:
+            report = inspect_source_tree(project_root)
+            if symbol:
+                traced = trace_symbol(report, symbol)
+                definitions = traced["definitions"]
+                callers = traced["callers"]
+                lines = [f"Static source trace for '{symbol}' (not proof of runtime behavior):"]
+                if definitions:
+                    lines.append("Definitions:")
+                    lines.extend(f"  - {item.qualified_name} · {item.path}:{item.line}" for item in definitions[:10])
+                else:
+                    lines.append("No exact definition found.")
+                if callers:
+                    lines.append("Statically named call sites:")
+                    lines.extend(f"  - {item.caller} calls {item.callee} · {item.path}:{item.line}" for item in callers[:10])
+                else:
+                    lines.append("No statically named call sites found.")
+                if len(definitions) > 10 or len(callers) > 10:
+                    lines.append("Output capped at 10 definitions and 10 call sites.")
+            else:
+                parsed = sum(1 for item in report.files if item.parsed)
+                lines = [
+                    "JARVIS source inspection (static evidence only; inspected code was not executed):",
+                    f"Python files: {len(report.files)} total, {parsed} parsed, {len(report.files) - parsed} skipped/unparsed.",
+                    f"Definitions: {len(report.symbols)} · imports: {len(report.imports)} · static call sites: {len(report.calls)}.",
+                    "Use /inspect-source SYMBOL to find exact definitions and statically named callers.",
+                ]
+            if report.warnings:
+                lines.append(f"Warnings/unknowns: {len(report.warnings)} (some files may be unreadable, oversized, or syntactically invalid).")
+                lines.extend(f"  - {warning}" for warning in report.warnings[:5])
+            self._record_activity("source_inspection", "completed", f"files={len(report.files)}; symbol_query={'yes' if symbol else 'no'}")
+            self._append("JARVIS", "\n".join(lines))
+        except (OSError, ValueError):
+            self._append("JARVIS", "Source inspection failed. No source files were modified or executed.")
+        return True
+
     def _set_provider(self, name: str) -> None:
         credentials = CredentialStore() if name == "gemini" else None
         provider = build_provider(ProviderConfig(name=name), credentials=credentials)
@@ -616,6 +664,8 @@ class JarvisWindow:
         if self._handle_repair_command(message):
             return
         if self._handle_research_history_command(message):
+            return
+        if self._handle_source_inspection_command(message):
             return
         if self._handle_task_history_command(message):
             return
