@@ -83,6 +83,8 @@ def review_candidate(
         raise ValueError("Diff must be text.")
     if "\x00" in diff_text:
         raise ValueError("Binary or NUL-containing diffs are not supported.")
+    if not diff_text.strip():
+        return CandidateReview("rejected", ("candidate diff is empty",), (), 0)
     if len(diff_text) > max_diff_chars:
         return CandidateReview("rejected", ("diff exceeds configured size limit",), (), len(diff_text))
 
