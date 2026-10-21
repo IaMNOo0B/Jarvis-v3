@@ -41,7 +41,9 @@ class RepairCandidatePolicyTests(unittest.TestCase):
         self.assertEqual(result.decision, "rejected")
         self.assertIn("changed-file limit exceeded", result.reasons[0])
 
-    def test_rejects_oversized_or_binary_diff(self):
+    def test_rejects_empty_oversized_or_binary_diff(self):
+        empty = review_candidate(["jarvis/a.py"], "  \\n")
+        self.assertEqual(empty.decision, "rejected")
         result = review_candidate(["jarvis/a.py"], "x" * 64001)
         self.assertEqual(result.decision, "rejected")
         with self.assertRaises(ValueError):
