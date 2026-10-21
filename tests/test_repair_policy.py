@@ -33,8 +33,8 @@ class RepairCandidatePolicyTests(unittest.TestCase):
                     review_candidate([path], "diff")
 
     def test_rejects_empty_duplicate_and_too_many_paths(self):
-        with self.assertRaises(ValueError):
-            review_candidate([], "diff")
+        empty = review_candidate([], "diff")
+        self.assertEqual(empty.decision, "rejected")
         with self.assertRaises(ValueError):
             review_candidate(["jarvis/a.py", "jarvis/a.py"], "diff")
         result = review_candidate([f"jarvis/file{i}.py" for i in range(21)], "diff")
