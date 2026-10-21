@@ -10,13 +10,16 @@ class RepairCandidatePolicyTests(unittest.TestCase):
         self.assertFalse(result.auto_apply_allowed)
         self.assertIn("human review remains mandatory", result.reasons[0])
 
-    def test_protected_runtime_and_secret_paths_require_manual_review(self):
+    def test_protected_runtime_secret_and_key_paths_require_manual_review(self):
         for path in (
             "jarvis/safety.py",
             "jarvis/orchestration.py",
             "data/memory.json",
             ".github/workflows/test.yml",
             "JARVIS.bat",
+            ".env.local",
+            "config/service.pem",
+            "keys/signing.key",
         ):
             with self.subTest(path=path):
                 result = review_candidate([path], "diff")
@@ -24,7 +27,7 @@ class RepairCandidatePolicyTests(unittest.TestCase):
                 self.assertFalse(result.auto_apply_allowed)
 
     def test_rejects_path_traversal_absolute_paths_and_windows_paths(self):
-        for path in ("../outside.py", "/tmp/file.py", "C:/Windows/file.py", "jarvis/../secret.py", r"jarvis\\secret.py"):
+        for path in ("../outside.py", "/tmp/file.py", "C:/Windows/file.py", "jarvis/../secret.py", r"jarvis\secret.py"):
             with self.subTest(path=path):
                 with self.assertRaises(ValueError):
                     review_candidate([path], "diff")
