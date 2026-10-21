@@ -32,6 +32,8 @@ class PlannerEvaluationTests(unittest.TestCase):
                 EvaluationCase("same", "open Calculator", "launch_allowlisted_app"),
             ))
         with self.assertRaises(ValueError):
+            evaluate_planner(self.planner, (EvaluationCase(7, "open Notepad", "launch_allowlisted_app"),))
+        with self.assertRaises(ValueError):
             evaluate_planner(self.planner, (), max_cases=501)
         with self.assertRaises(ValueError):
             evaluate_planner(self.planner, (
