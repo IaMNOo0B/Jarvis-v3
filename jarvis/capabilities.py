@@ -5,7 +5,7 @@ from typing import Mapping
 
 from jarvis.desktop_actions import APP_EXECUTABLES, is_supported_notepad_text, launch_app_with_approval, open_url_with_approval, validate_http_url
 from jarvis.desktop_automation import AppRegistry, PowerShellUIAutomationBackend, UIActionRequest, execute_ui_action
-from jarvis.orchestration import Capability, CapabilityRegistry, TaskOutcome
+from jarvis.orchestration import ArgumentField, Capability, CapabilityRegistry, TaskOutcome
 from jarvis.research import PublicResearch
 
 
@@ -103,19 +103,40 @@ def build_capability_registry(
             report,
         )
 
-    registry.register(Capability("launch_app", launch, requires_approval=True, description="Launch a fixed allow-listed Windows app"))
+    registry.register(Capability(
+        "launch_app", launch, requires_approval=True,
+        description="Launch a fixed allow-listed Windows app",
+        argument_schema={"app": ArgumentField(str, max_length=50)},
+    ))
     registry.register(Capability(
         "open_url", open_url, requires_approval=True,
         description="Open one explicit, validated HTTP(S) URL in allow-listed Chrome or Edge",
+        argument_schema={
+            "browser": ArgumentField(str, max_length=20),
+            "url": ArgumentField(str, max_length=2048),
+        },
     ))
     registry.register(Capability(
         "preflight_notepad_uia", preflight_notepad_uia, requires_approval=False,
         description="Check that the fixed Windows PowerShell UI Automation helper is available before launching Notepad",
+        argument_schema={},
     ))
     registry.register(Capability(
         "type_notepad_text", type_notepad_text, requires_approval=True,
         description="Type requested text only into a detected blank Notepad document and verify exact read-back",
+        argument_schema={
+            "text": ArgumentField(str, max_length=2000),
+            "target": ArgumentField(str, max_length=40, allowed_values=("blank document",)),
+        },
     ))
-    registry.register(Capability("research_wikipedia", lambda args: research_source("wikipedia", "research_wikipedia", args), requires_approval=False, description="Search Wikipedia's public API"))
-    registry.register(Capability("research_github", lambda args: research_source("github", "research_github", args), requires_approval=False, description="Search GitHub repository metadata"))
+    registry.register(Capability(
+        "research_wikipedia", lambda args: research_source("wikipedia", "research_wikipedia", args),
+        requires_approval=False, description="Search Wikipedia's public API",
+        argument_schema={"query": ArgumentField(str, max_length=240)},
+    ))
+    registry.register(Capability(
+        "research_github", lambda args: research_source("github", "research_github", args),
+        requires_approval=False, description="Search GitHub repository metadata",
+        argument_schema={"query": ArgumentField(str, max_length=240)},
+    ))
     return registry

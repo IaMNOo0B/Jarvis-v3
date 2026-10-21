@@ -68,6 +68,37 @@ class OrchestrationTests(unittest.TestCase):
         self.assertEqual(result.status, "failed")
         self.assertNotIn("secret", result.detail)
 
+    def test_declared_schema_rejects_missing_wrong_type_and_unknown_fields_before_handler(self):
+        from jarvis.orchestration import ArgumentField
+
+        calls = []
+        registry = CapabilityRegistry()
+        registry.register(Capability(
+            "strict",
+            lambda args: calls.append(dict(args)) or {"ok": True},
+            requires_approval=False,
+            argument_schema={
+                "query": ArgumentField(str, max_length=10),
+                "mode": ArgumentField(str, required=False, allowed_values=("safe", "read_only")),
+            },
+        ))
+        for arguments in ({}, {"query": 7}, {"query": "x" * 11}, {"query": "ok", "mode": "unsafe"}, {"query": "ok", "extra": True}):
+            with self.subTest(arguments=arguments):
+                result = run_capability("strict", arguments, registry=registry)
+                self.assertEqual(result.status, "blocked")
+        self.assertEqual(calls, [])
+
+    def test_schema_rejects_boolean_for_integer_type(self):
+        from jarvis.orchestration import ArgumentField
+
+        registry = CapabilityRegistry()
+        registry.register(Capability(
+            "strict_int", lambda args: args["count"], requires_approval=False,
+            argument_schema={"count": ArgumentField(int)},
+        ))
+        self.assertEqual(run_capability("strict_int", {"count": True}, registry=registry).status, "blocked")
+        self.assertEqual(run_capability("strict_int", {"count": 2}, registry=registry).status, "attempted")
+
     def test_duplicate_capability_rejected(self):
         with self.assertRaises(ValueError):
             self.registry.register(Capability("SAFE_READ", lambda _: None))
