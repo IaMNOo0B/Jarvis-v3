@@ -25,6 +25,8 @@ class ArgumentField:
             raise TypeError("Argument field value_type must be a type.")
         if self.max_length is not None and self.max_length < 0:
             raise ValueError("max_length cannot be negative.")
+        if self.max_length is not None and self.value_type is not str:
+            raise ValueError("max_length is supported only for string fields.")
         if self.allowed_values and self.value_type is not str:
             raise ValueError("allowed_values is supported only for string fields.")
 
