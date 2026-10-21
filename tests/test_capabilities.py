@@ -49,6 +49,33 @@ class CapabilityTests(unittest.TestCase):
             {"launch_app", "open_url", "preflight_notepad_uia", "type_notepad_text", "research_wikipedia", "research_github"},
         )
 
+    def test_declared_argument_contract_blocks_unexpected_fields_before_launch(self):
+        with patch("jarvis.capabilities.launch_app_with_approval") as launch:
+            outcome = run_capability(
+                "launch_app", {"app": "notepad", "command": "format c:"},
+                registry=self.registry, approved=True,
+            )
+        self.assertEqual(outcome.status, "blocked")
+        self.assertIn("Unexpected argument", outcome.detail)
+        launch.assert_not_called()
+
+    def test_declared_argument_contract_blocks_oversized_research_before_provider_call(self):
+        outcome = run_capability(
+            "research_wikipedia", {"query": "x" * 241}, registry=self.registry,
+        )
+        self.assertEqual(outcome.status, "blocked")
+        self.assertEqual(self.research.calls, [])
+
+    def test_declared_argument_contract_rejects_non_string_url_and_bad_browser(self):
+        for arguments in (
+            {"browser": "powershell", "url": "https://example.com"},
+            {"browser": "chrome", "url": 123},
+            {"browser": "chrome", "url": "https://example.com", "extra": "ignored"},
+        ):
+            with self.subTest(arguments=arguments):
+                result = run_capability("open_url", arguments, registry=self.registry, approved=True)
+                self.assertEqual(result.status, "blocked")
+
     def test_research_is_bounded_and_returns_source_evidence(self):
         outcome = run_capability("research_wikipedia", {"query": "AI"}, registry=self.registry)
         self.assertEqual(outcome.status, "verified")
