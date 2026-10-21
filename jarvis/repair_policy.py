@@ -28,6 +28,11 @@ PROTECTED_EXACT_PATHS = {
     "requirements-dev.txt",
     "JARVIS.bat",
     "Install_JARVIS.bat",
+    ".env",
+    "credentials.json",
+    "secrets.json",
+    "token.json",
+    "id_rsa",
 }
 PROTECTED_PREFIXES = (
     ".github/workflows/",
@@ -37,6 +42,7 @@ PROTECTED_PREFIXES = (
     "secrets/",
     "credentials/",
 )
+PROTECTED_SUFFIXES = (".pem", ".key", ".p12", ".pfx", ".env")
 
 
 @dataclass(frozen=True)
@@ -58,8 +64,7 @@ def _normalize_path(path: object) -> str:
     parts = path.split("/")
     if any(part in {"", ".", ".."} for part in parts):
         raise ValueError("Path traversal or ambiguous path segments are not allowed.")
-    normalized = str(PurePosixPath(*parts))
-    return normalized
+    return str(PurePosixPath(*parts))
 
 
 def review_candidate(
@@ -92,10 +97,15 @@ def review_candidate(
         return CandidateReview("rejected", ("duplicate changed paths are ambiguous",), tuple(normalized), len(diff_text))
 
     protected = []
+    exact_paths = {item.casefold() for item in PROTECTED_EXACT_PATHS}
     for path in normalized:
         lower = path.casefold()
-        if lower in {item.casefold() for item in PROTECTED_EXACT_PATHS} or any(
-            lower.startswith(prefix.casefold()) for prefix in PROTECTED_PREFIXES
+        filename = lower.rsplit("/", 1)[-1]
+        if (
+            lower in exact_paths
+            or any(lower.startswith(prefix.casefold()) for prefix in PROTECTED_PREFIXES)
+            or filename.startswith(".env.")
+            or filename.endswith(PROTECTED_SUFFIXES)
         ):
             protected.append(path)
 
