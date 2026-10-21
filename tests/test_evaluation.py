@@ -1,12 +1,23 @@
 import unittest
 
-from jarvis.evaluation import EvaluationCase, evaluate_planner
+from jarvis.evaluation import (
+    DEFAULT_GOLDEN_CASES,
+    EvaluationCase,
+    evaluate_default_golden_suite,
+    evaluate_planner,
+)
 from jarvis.task_planner import TaskPlanner
 
 
 class PlannerEvaluationTests(unittest.TestCase):
     def setUp(self):
         self.planner = TaskPlanner()
+
+    def test_default_golden_suite_covers_chat_hinglish_research_and_safe_actions(self):
+        report = evaluate_default_golden_suite(self.planner)
+        self.assertEqual(report.total, len(DEFAULT_GOLDEN_CASES))
+        self.assertEqual(report.failed, 0, [result for result in report.results if not result.passed])
+        self.assertEqual(report.pass_rate, 1.0)
 
     def test_golden_cases_score_intent_and_action_sequence_without_execution(self):
         cases = (
