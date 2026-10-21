@@ -543,7 +543,7 @@ class JarvisWindow:
             return False
         parts = stripped.split(maxsplit=1)
         symbol = parts[1].strip() if len(parts) == 2 else ""
-        if symbol.startswith("/") or "\\\\" in symbol or len(symbol) > 200:
+        if symbol.startswith("/") or "\\" in symbol or len(symbol) > 200:
             self._append("JARVIS", "Usage: /inspect-source [symbol name]. The inspection root is fixed to the JARVIS project; arbitrary paths are not accepted.")
             return True
         project_root = Path(__file__).resolve().parent.parent
