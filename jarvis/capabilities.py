@@ -112,7 +112,7 @@ def build_capability_registry(
         "open_url", open_url, requires_approval=True,
         description="Open one explicit, validated HTTP(S) URL in allow-listed Chrome or Edge",
         argument_schema={
-            "browser": ArgumentField(str, max_length=20, allowed_values=("chrome", "edge")),
+            "browser": ArgumentField(str, max_length=20),
             "url": ArgumentField(str, max_length=2048),
         },
     ))
