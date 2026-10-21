@@ -60,8 +60,8 @@ def evaluate_planner(
             raise ValueError("Evaluation case limit exceeded.")
         if not isinstance(case, EvaluationCase):
             raise TypeError("Every evaluation item must be an EvaluationCase.")
-        if not case.case_id.strip() or case.case_id in seen:
-            raise ValueError("Case IDs must be non-empty and unique.")
+        if not isinstance(case.case_id, str) or not case.case_id.strip() or case.case_id in seen:
+            raise ValueError("Case IDs must be non-empty unique strings.")
         if not isinstance(case.request, str) or not case.request.strip() or len(case.request) > 2000:
             raise ValueError("Each request must contain 1–2000 characters.")
         if not isinstance(case.expected_intent, str) or not case.expected_intent.strip():
