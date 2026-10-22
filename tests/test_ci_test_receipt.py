@@ -43,6 +43,12 @@ class CiTestReceiptTests(unittest.TestCase):
             receipt = write_receipt(output)
             self.assertEqual(json.loads(output.read_text(encoding="utf-8")), receipt)
 
+    def test_receipt_runner_override_supports_separate_receipt_job(self):
+        os.environ["JARVIS_RECEIPT_RUNNER_OS"] = "Windows"
+        os.environ["RUNNER_OS"] = "Linux"
+        receipt = build_receipt()
+        self.assertEqual(receipt["runner_os"], "Windows")
+
     def test_explicit_candidate_sha_overrides_workflow_commit(self):
         os.environ["JARVIS_CANDIDATE_SHA"] = "b" * 40
         receipt = build_receipt()

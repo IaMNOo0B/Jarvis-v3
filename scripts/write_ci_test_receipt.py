@@ -37,7 +37,12 @@ def build_receipt() -> dict[str, str]:
     commit_sha = commit_sha.lower()
     run_id = _required_env("GITHUB_RUN_ID", r"[0-9]{1,20}", 20)
     run_attempt = _required_env("GITHUB_RUN_ATTEMPT", r"[0-9]{1,5}", 5)
-    runner_os = _required_env("RUNNER_OS", r"[A-Za-z]{1,10}", 10)
+    runner_override = os.environ.get("JARVIS_RECEIPT_RUNNER_OS", "").strip()
+    runner_os = (
+        runner_override
+        if runner_override
+        else _required_env("RUNNER_OS", r"[A-Za-z]{1,10}", 10)
+    )
     if runner_os not in _ALLOWED_OS:
         raise ValueError("Unsupported runner OS.")
     result = _required_env("JARVIS_TEST_RESULT", r"[a-z]{1,10}", 10)
