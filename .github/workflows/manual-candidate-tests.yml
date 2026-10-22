@@ -1,0 +1,96 @@
+name: Manual Candidate Tests
+
+on:
+  workflow_dispatch:
+    inputs:
+      candidate_sha:
+        description: "Full 40-character commit SHA to test from this repository"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: manual-candidate-tests-${{ inputs.candidate_sha }}
+  cancel-in-progress: false
+
+jobs:
+  candidate-tests:
+    if: github.ref == 'refs/heads/main'
+    name: Candidate tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - name: Checkout trusted workflow and receipt writer
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Validate candidate commit SHA
+        env:
+          JARVIS_CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+        run: |
+          python -c "import os,re,sys; value=os.environ.get('JARVIS_CANDIDATE_SHA',''); sys.exit(0 if re.fullmatch(r'[0-9a-fA-F]{40}', value) else 1)"
+
+      - name: Checkout exact candidate commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.candidate_sha }}
+          path: candidate
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Compile candidate Python sources
+        working-directory: candidate
+        run: python -m compileall -q jarvis tests scripts
+
+      - name: Compile candidate GUI launcher
+        working-directory: candidate
+        run: python -m py_compile Start_JARVIS.pyw
+
+      - name: Parse candidate PowerShell UI Automation helper
+        if: runner.os == 'Windows'
+        working-directory: candidate
+        shell: powershell
+        run: |
+          $scriptPath = Join-Path $env:GITHUB_WORKSPACE "candidate/scripts/jarvis_notepad_uia.ps1"
+          $parseTokens = $null
+          $parseErrors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile($scriptPath, [ref]$parseTokens, [ref]$parseErrors) | Out-Null
+          if ($parseErrors.Count -gt 0) {
+            $parseErrors | ForEach-Object { Write-Error $_.Message }
+            exit 1
+          }
+          Write-Host "PowerShell helper syntax OK"
+
+      - name: Run fixed candidate test suite
+        id: candidate_tests
+        working-directory: candidate
+        run: python -m unittest discover -s tests -v
+
+      - name: Write receipt using trusted main-branch code
+        if: always()
+        env:
+          JARVIS_CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          JARVIS_TEST_RESULT: ${{ steps.candidate_tests.outcome || 'skipped' }}
+          JARVIS_JOB_RESULT: ${{ job.status }}
+        run: python scripts/write_ci_test_receipt.py candidate-test-receipt.json
+
+      - name: Upload candidate test receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jarvis-candidate-receipt-${{ matrix.os }}
+          path: candidate-test-receipt.json
+          if-no-files-found: warn
+          retention-days: 14
