@@ -13,7 +13,7 @@ import re
 import sys
 
 
-_ALLOWED_RESULTS = {"success", "failure", "cancelled"}
+_ALLOWED_RESULTS = {"success", "failure", "cancelled", "skipped"}
 _ALLOWED_OS = {"Windows", "Linux", "macOS"}
 
 
@@ -33,8 +33,9 @@ def build_receipt() -> dict[str, str]:
     if runner_os not in _ALLOWED_OS:
         raise ValueError("Unsupported runner OS.")
     result = _required_env("JARVIS_TEST_RESULT", r"[a-z]{1,10}", 10)
-    if result not in _ALLOWED_RESULTS:
-        raise ValueError("Unsupported CI test result.")
+    job_result = _required_env("JARVIS_JOB_RESULT", r"[a-z]{1,10}", 10)
+    if result not in _ALLOWED_RESULTS or job_result not in {"success", "failure", "cancelled"}:
+        raise ValueError("Unsupported CI test or job result.")
     python_version = platform.python_version()
     return {
         "schema_version": "1",
@@ -44,7 +45,8 @@ def build_receipt() -> dict[str, str]:
         "runner_os": runner_os,
         "python_version": python_version,
         "test_command": "python -m unittest discover -s tests -v",
-        "result": result,
+        "unit_test_step_result": result,
+        "job_result": job_result,
     }
 
 
