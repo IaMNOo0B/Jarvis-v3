@@ -43,6 +43,16 @@ class CiTestReceiptTests(unittest.TestCase):
             receipt = write_receipt(output)
             self.assertEqual(json.loads(output.read_text(encoding="utf-8")), receipt)
 
+    def test_explicit_candidate_sha_overrides_workflow_commit(self):
+        os.environ["JARVIS_CANDIDATE_SHA"] = "b" * 40
+        receipt = build_receipt()
+        self.assertEqual(receipt["commit_sha"], "b" * 40)
+
+    def test_invalid_candidate_sha_is_rejected(self):
+        os.environ["JARVIS_CANDIDATE_SHA"] = "not-a-commit"
+        with self.assertRaises(ValueError):
+            build_receipt()
+
     def test_invalid_sha_is_rejected(self):
         os.environ["GITHUB_SHA"] = "not-a-commit"
         with self.assertRaises(ValueError):

@@ -26,7 +26,15 @@ def _required_env(name: str, pattern: str, maximum: int = 100) -> str:
 
 def build_receipt() -> dict[str, str]:
     """Build receipt only from bounded, validated workflow metadata."""
-    commit_sha = _required_env("GITHUB_SHA", r"[0-9a-fA-F]{40}", 40).lower()
+    candidate_sha = os.environ.get("JARVIS_CANDIDATE_SHA", "").strip()
+    commit_sha = (
+        candidate_sha
+        if candidate_sha
+        else _required_env("GITHUB_SHA", r"[0-9a-fA-F]{40}", 40)
+    )
+    if len(commit_sha) != 40 or not re.fullmatch(r"[0-9a-fA-F]{40}", commit_sha):
+        raise ValueError("Invalid or missing CI receipt candidate commit SHA.")
+    commit_sha = commit_sha.lower()
     run_id = _required_env("GITHUB_RUN_ID", r"[0-9]{1,20}", 20)
     run_attempt = _required_env("GITHUB_RUN_ATTEMPT", r"[0-9]{1,5}", 5)
     runner_os = _required_env("RUNNER_OS", r"[A-Za-z]{1,10}", 10)
