@@ -12,3 +12,6 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 .coverage
+
+# Ephemeral CI receipt output
+jarvis-ci-test-receipt.json
