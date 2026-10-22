@@ -1,9 +1,36 @@
 import unittest
 
-from jarvis.repair_policy import review_candidate
+from jarvis.repair_policy import parse_git_changed_paths, review_candidate
 
 
 class RepairCandidatePolicyTests(unittest.TestCase):
+    def test_parses_nul_delimited_git_changed_paths(self):
+        self.assertEqual(
+            parse_git_changed_paths(b"jarvis/learning.py\x00tests/test_learning.py\x00"),
+            ("jarvis/learning.py", "tests/test_learning.py"),
+        )
+        self.assertEqual(parse_git_changed_paths(b""), ())
+
+    def test_git_path_parser_rejects_malformed_unsafe_and_duplicate_paths(self):
+        for raw in (
+            b"jarvis/a.py",
+            b"../outside.py\x00",
+            b"jarvis/a.py\x00jarvis/A.py\x00",
+            b"jarvis/a.py\x00\x00",
+            b"jarvis/\xff.py\x00",
+        ):
+            with self.subTest(raw=raw):
+                with self.assertRaises(ValueError):
+                    parse_git_changed_paths(raw)
+
+    def test_git_path_parser_enforces_file_and_byte_limits(self):
+        with self.assertRaises(ValueError):
+            parse_git_changed_paths(b"".join(f"file{i}.py\x00".encode() for i in range(21)))
+        with self.assertRaises(ValueError):
+            parse_git_changed_paths(b"x" * 40001)
+        with self.assertRaises(ValueError):
+            parse_git_changed_paths(b"file.py\x00", max_files=21)
+
     def test_normal_source_change_is_only_eligible_for_tests(self):
         result = review_candidate(["jarvis/learning.py", "tests/test_learning.py"], "diff")
         self.assertEqual(result.decision, "eligible_for_tests")
