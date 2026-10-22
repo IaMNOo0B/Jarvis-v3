@@ -43,4 +43,18 @@ jobs:
           }
           Write-Host "PowerShell helper syntax OK"
       - name: Run standard-library test suite
+        id: unit_tests
         run: python -m unittest discover -s tests -v
+      - name: Write bounded test receipt
+        if: always()
+        env:
+          JARVIS_TEST_RESULT: ${{ job.status }}
+        run: python scripts/write_ci_test_receipt.py jarvis-ci-test-receipt.json
+      - name: Upload test receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jarvis-test-receipt-${{ matrix.os }}
+          path: jarvis-ci-test-receipt.json
+          if-no-files-found: warn
+          retention-days: 14
