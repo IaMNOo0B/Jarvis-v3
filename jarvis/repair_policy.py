@@ -14,6 +14,7 @@ from typing import Iterable
 
 MAX_CHANGED_FILES = 20
 MAX_DIFF_CHARS = 64_000
+MAX_PATH_LIST_BYTES = 40_000
 
 # Changes here can alter the permission boundary, dependency trust, or startup path.
 PROTECTED_EXACT_PATHS = {
@@ -67,6 +68,39 @@ def _normalize_path(path: object) -> str:
     return str(PurePosixPath(*parts))
 
 
+def parse_git_changed_paths(name_only_z: bytes, *, max_files: int = MAX_CHANGED_FILES) -> tuple[str, ...]:
+    """Parse bounded output from 'git diff --name-only -z'; does not invoke Git."""
+    if not isinstance(name_only_z, bytes):
+        raise ValueError("Git path output must be bytes.")
+    if type(max_files) is not int or not 1 <= max_files <= MAX_CHANGED_FILES:
+        raise ValueError("max_files must be an integer from 1 to 20.")
+    if len(name_only_z) > MAX_PATH_LIST_BYTES:
+        raise ValueError("Git changed-path output exceeds the size limit.")
+    if not name_only_z:
+        return ()
+    if not name_only_z.endswith(b"\\x00"):
+        raise ValueError("Git changed-path output must be NUL-terminated.")
+    raw_paths = name_only_z[:-1].split(b"\\x00")
+    if len(raw_paths) > max_files:
+        raise ValueError("Git changed-file limit exceeded.")
+    paths: list[str] = []
+    seen: set[str] = set()
+    for raw_path in raw_paths:
+        if not raw_path:
+            raise ValueError("Git changed-path output contains an empty path.")
+        try:
+            path = raw_path.decode("utf-8", errors="strict")
+        except UnicodeDecodeError as exc:
+            raise ValueError("Git changed paths must be valid UTF-8.") from exc
+        normalized = _normalize_path(path)
+        key = normalized.casefold()
+        if key in seen:
+            raise ValueError("Git changed-path output contains duplicate paths.")
+        seen.add(key)
+        paths.append(normalized)
+    return tuple(paths)
+
+
 def review_candidate(
     changed_paths: Iterable[str],
     diff_text: str,
@@ -95,7 +129,7 @@ def review_candidate(
             return CandidateReview("rejected", ("changed-file limit exceeded",), tuple(normalized[:max_files]), len(diff_text))
     if not normalized:
         return CandidateReview("rejected", ("candidate has no changed paths",), (), len(diff_text))
-    if len(set(normalized)) != len(normalized):
+    if len({path.casefold() for path in normalized}) != len(normalized):
         return CandidateReview("rejected", ("duplicate changed paths are ambiguous",), tuple(normalized), len(diff_text))
 
     protected = []
