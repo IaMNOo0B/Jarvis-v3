@@ -97,6 +97,15 @@ class RepairLedgerTests(unittest.TestCase):
         self.assertIn("ValueError", traversal.reasons[0])
         self.assertEqual(self.ledger.list_proposals()[0].status, "proposed")
 
+    def test_oversized_candidate_is_rejected_without_hashing_full_diff(self):
+        proposal = self.ledger.propose("Large patch", "Review patch size.", "issue-11")
+        receipt = self.ledger.review_candidate_policy(
+            proposal.repair_id, changed_paths=["jarvis/a.py"], diff_text="x" * 64001
+        )
+        self.assertEqual(receipt.decision, "rejected")
+        self.assertEqual(receipt.diff_sha256, "")
+        self.assertEqual(receipt.diff_chars, 64001)
+
     def test_candidate_policy_requires_existing_proposal(self):
         with self.assertRaises(ValueError):
             self.ledger.review_candidate_policy(999, changed_paths=["jarvis/a.py"], diff_text="diff")
