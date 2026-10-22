@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
+import platform
 import re
 import sys
 
@@ -34,7 +35,7 @@ def build_receipt() -> dict[str, str]:
     result = _required_env("JARVIS_TEST_RESULT", r"[a-z]{1,10}", 10)
     if result not in _ALLOWED_RESULTS:
         raise ValueError("Unsupported CI test result.")
-    python_version = _required_env("JARVIS_PYTHON_VERSION", r"[0-9.]{1,30}", 30)
+    python_version = platform.python_version()
     return {
         "schema_version": "1",
         "commit_sha": commit_sha,
