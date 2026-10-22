@@ -35,8 +35,9 @@ class RepairCandidatePolicyTests(unittest.TestCase):
     def test_rejects_empty_duplicate_and_too_many_paths(self):
         empty = review_candidate([], "diff")
         self.assertEqual(empty.decision, "rejected")
-        with self.assertRaises(ValueError):
-            review_candidate(["jarvis/a.py", "jarvis/a.py"], "diff")
+        duplicate = review_candidate(["jarvis/a.py", "jarvis/a.py"], "diff")
+        self.assertEqual(duplicate.decision, "rejected")
+        self.assertIn("duplicate changed paths", duplicate.reasons[0])
         result = review_candidate([f"jarvis/file{i}.py" for i in range(21)], "diff")
         self.assertEqual(result.decision, "rejected")
         self.assertIn("changed-file limit exceeded", result.reasons[0])
