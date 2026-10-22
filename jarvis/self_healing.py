@@ -14,7 +14,7 @@ import sqlite3
 from typing import ContextManager
 
 from jarvis.sqlite_utils import sqlite_connection
-from jarvis.repair_policy import CandidateReview, review_candidate
+from jarvis.repair_policy import MAX_DIFF_CHARS, CandidateReview, review_candidate
 from pathlib import Path
 import re
 
@@ -153,7 +153,10 @@ class RepairLedger:
         if not isinstance(diff_text, str):
             raise ValueError("Diff must be text.")
         # Persist only a hash and metadata, never candidate source or secret-bearing diffs.
-        diff_hash = hashlib.sha256(diff_text.encode("utf-8", errors="replace")).hexdigest()
+        diff_hash = (
+            hashlib.sha256(diff_text.encode("utf-8", errors="replace")).hexdigest()
+            if len(diff_text) <= MAX_DIFF_CHARS else ""
+        )
         try:
             review: CandidateReview = review_candidate(changed_paths, diff_text)
             decision, reasons, paths, diff_chars = (
