@@ -17,3 +17,11 @@ A policy receipt does not change the proposal status, count as a test result, au
 ## Trusted changed-path parsing
 
 `parse_git_changed_paths` accepts raw bytes from a controlled `git diff --name-only -z` invocation. It does not invoke Git itself. It requires NUL-terminated UTF-8 paths, caps the output at 40,000 bytes and 20 paths, and rejects traversal/absolute/Windows paths, empty entries, duplicate paths (case-insensitive), and malformed encoding. The caller remains responsible for running Git with fixed arguments, a trusted repository directory, no shell, and bounded time/output. Never pass a model-generated path list as if it were Git output.
+
+## CI test receipt verification
+
+`jarvis.ci_test_receipts.verify_ci_test_receipt` validates the receipt schema, fixed test command, successful test-step and job outcomes, and exact expected commit/run/attempt/OS metadata. `RepairLedger.record_ci_test_receipt` persists only validated metadata and never stores test output or candidate source.
+
+**Important trust boundary:** the JSON receipt is not cryptographically signed. A caller must fetch the artifact attached to the expected workflow run through an authenticated GitHub API client and derive the expected commit SHA, run ID, attempt and runner OS from trusted GitHub workflow metadata. Passing an arbitrary local JSON file to the validator is not proof that tests ran.
+
+When CI receipts are used for approval, the ledger requires successful receipts for both Windows and Linux for the exact candidate commit, in addition to the existing passing verification receipt and explicit approval for manual review. This still does not apply, merge, install, or deploy code. It does not create a sandbox or run candidate code.
