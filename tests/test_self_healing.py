@@ -70,6 +70,37 @@ class RepairLedgerTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.ledger.review(proposal.repair_id, approve_for_manual_review=False)
 
+    def test_candidate_policy_review_is_audited_without_approving_or_applying(self):
+        proposal = self.ledger.propose("Routing regression", "Adjust planner matching.", "issue-9")
+        receipt = self.ledger.review_candidate_policy(
+            proposal.repair_id,
+            changed_paths=["jarvis/learning.py", "tests/test_learning.py"],
+            diff_text="diff --git a/jarvis/learning.py b/jarvis/learning.py",
+        )
+        self.assertEqual(receipt.decision, "eligible_for_tests")
+        self.assertEqual(len(receipt.diff_sha256), 64)
+        self.assertFalse(hasattr(receipt, "diff_text"))
+        self.assertEqual(self.ledger.list_proposals()[0].status, "proposed")
+        stored = self.ledger.recent_candidate_policy_reviews(proposal.repair_id)
+        self.assertEqual(stored[0], receipt)
+
+    def test_protected_candidate_is_flagged_and_traversal_is_rejected(self):
+        proposal = self.ledger.propose("Safety regression", "Review the patch.", "issue-10")
+        protected = self.ledger.review_candidate_policy(
+            proposal.repair_id, changed_paths=["jarvis/safety.py"], diff_text="diff"
+        )
+        self.assertEqual(protected.decision, "manual_review_required")
+        traversal = self.ledger.review_candidate_policy(
+            proposal.repair_id, changed_paths=["../outside.py"], diff_text="diff"
+        )
+        self.assertEqual(traversal.decision, "rejected")
+        self.assertIn("ValueError", traversal.reasons[0])
+        self.assertEqual(self.ledger.list_proposals()[0].status, "proposed")
+
+    def test_candidate_policy_requires_existing_proposal(self):
+        with self.assertRaises(ValueError):
+            self.ledger.review_candidate_policy(999, changed_paths=["jarvis/a.py"], diff_text="diff")
+
     def test_unknown_proposal_and_bad_result_are_rejected(self):
         with self.assertRaises(ValueError):
             self.ledger.record_verification(999, result="passed", test_summary="ok",
