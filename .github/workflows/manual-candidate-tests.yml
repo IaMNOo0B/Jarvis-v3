@@ -20,17 +20,14 @@ jobs:
     if: github.ref == 'refs/heads/main'
     name: Candidate tests (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
     steps:
-      - name: Checkout trusted workflow and receipt writer
-        uses: actions/checkout@v4
-        with:
-          ref: main
-          persist-credentials: false
-
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -78,19 +75,58 @@ jobs:
         working-directory: candidate
         run: python -m unittest discover -s tests -v
 
-      - name: Write receipt using trusted main-branch code
-        if: always()
+  candidate-receipts:
+    if: always() && github.ref == 'refs/heads/main'
+    name: Record candidate test receipts
+    needs: [candidate-tests]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - name: Checkout trusted receipt tools from main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Read candidate outcomes from GitHub job metadata
+        id: job_results
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          JARVIS_REPOSITORY: ${{ github.repository }}
+          JARVIS_RUN_ID: ${{ github.run_id }}
+        run: python scripts/read_candidate_job_results.py
+
+      - name: Write Windows receipt
+        if: always() && steps.job_results.outcome == 'success'
         env:
           JARVIS_CANDIDATE_SHA: ${{ inputs.candidate_sha }}
-          JARVIS_TEST_RESULT: ${{ steps.candidate_tests.outcome || 'skipped' }}
-          JARVIS_JOB_RESULT: ${{ job.status }}
-        run: python scripts/write_ci_test_receipt.py candidate-test-receipt.json
+          JARVIS_RECEIPT_RUNNER_OS: Windows
+          JARVIS_TEST_RESULT: ${{ steps.job_results.outputs.windows_test_result }}
+          JARVIS_JOB_RESULT: ${{ steps.job_results.outputs.windows_job_result }}
+        run: python scripts/write_ci_test_receipt.py candidate-receipts/windows.json
 
-      - name: Upload candidate test receipt
+      - name: Write Linux receipt
+        if: always() && steps.job_results.outcome == 'success'
+        env:
+          JARVIS_CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          JARVIS_RECEIPT_RUNNER_OS: Linux
+          JARVIS_TEST_RESULT: ${{ steps.job_results.outputs.linux_test_result }}
+          JARVIS_JOB_RESULT: ${{ steps.job_results.outputs.linux_job_result }}
+        run: python scripts/write_ci_test_receipt.py candidate-receipts/linux.json
+
+      - name: Upload candidate test receipts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: jarvis-candidate-receipt-${{ matrix.os }}
-          path: candidate-test-receipt.json
+          name: jarvis-candidate-receipts
+          path: candidate-receipts/*.json
           if-no-files-found: warn
           retention-days: 14
