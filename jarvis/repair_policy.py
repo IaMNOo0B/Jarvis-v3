@@ -78,9 +78,9 @@ def parse_git_changed_paths(name_only_z: bytes, *, max_files: int = MAX_CHANGED_
         raise ValueError("Git changed-path output exceeds the size limit.")
     if not name_only_z:
         return ()
-    if not name_only_z.endswith(b"\\x00"):
+    if not name_only_z.endswith(b"\x00"):
         raise ValueError("Git changed-path output must be NUL-terminated.")
-    raw_paths = name_only_z[:-1].split(b"\\x00")
+    raw_paths = name_only_z[:-1].split(b"\x00")
     if len(raw_paths) > max_files:
         raise ValueError("Git changed-file limit exceeded.")
     paths: list[str] = []
