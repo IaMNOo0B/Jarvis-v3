@@ -48,7 +48,8 @@ jobs:
       - name: Write bounded test receipt
         if: always()
         env:
-          JARVIS_TEST_RESULT: ${{ job.status }}
+          JARVIS_TEST_RESULT: ${{ steps.unit_tests.outcome || 'skipped' }}
+          JARVIS_JOB_RESULT: ${{ job.status }}
         run: python scripts/write_ci_test_receipt.py jarvis-ci-test-receipt.json
       - name: Upload test receipt
         if: always()
