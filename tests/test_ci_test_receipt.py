@@ -16,6 +16,7 @@ class CiTestReceiptTests(unittest.TestCase):
             "GITHUB_RUN_ATTEMPT": "2",
             "RUNNER_OS": "Linux",
             "JARVIS_TEST_RESULT": "success",
+            "JARVIS_JOB_RESULT": "success",
         }
         self.env_patch = patch.dict(os.environ, self.env, clear=True)
         self.env_patch.start()
@@ -27,7 +28,8 @@ class CiTestReceiptTests(unittest.TestCase):
         receipt = build_receipt()
         self.assertEqual(receipt["commit_sha"], "a" * 40)
         self.assertEqual(receipt["workflow_run_id"], "123456")
-        self.assertEqual(receipt["result"], "success")
+        self.assertEqual(receipt["unit_test_step_result"], "success")
+        self.assertEqual(receipt["job_result"], "success")
         self.assertEqual(
             receipt["test_command"],
             "python -m unittest discover -s tests -v",
@@ -58,7 +60,7 @@ class CiTestReceiptTests(unittest.TestCase):
 
     def test_receipt_does_not_accept_arbitrary_test_commands(self):
         receipt = build_receipt()
-        self.assertEqual(len(receipt["test_command"]), 43)
+        self.assertEqual(receipt["test_command"], "python -m unittest discover -s tests -v")
         self.assertNotIn("JARVIS_TEST_COMMAND", receipt)
 
 
