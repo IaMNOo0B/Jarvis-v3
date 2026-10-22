@@ -15,6 +15,7 @@ from typing import ContextManager
 
 from jarvis.sqlite_utils import sqlite_connection
 from jarvis.repair_policy import MAX_DIFF_CHARS, CandidateReview, review_candidate
+from jarvis.ci_test_receipts import VerifiedCiTestReceipt, verify_ci_test_receipt
 from pathlib import Path
 import re
 
@@ -118,6 +119,19 @@ class RepairLedger:
                 diff_chars INTEGER NOT NULL,
                 created_at TEXT NOT NULL
             )""")
+            db.execute("""CREATE TABLE IF NOT EXISTS ci_test_receipts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                repair_id INTEGER NOT NULL REFERENCES repair_proposals(id),
+                commit_sha TEXT NOT NULL,
+                workflow_run_id TEXT NOT NULL,
+                run_attempt TEXT NOT NULL,
+                runner_os TEXT NOT NULL CHECK(runner_os IN ('Windows','Linux','macOS')),
+                python_version TEXT NOT NULL,
+                test_command TEXT NOT NULL,
+                result TEXT NOT NULL CHECK(result IN ('passed')),
+                created_at TEXT NOT NULL,
+                UNIQUE(repair_id, commit_sha, workflow_run_id, run_attempt, runner_os)
+            )""")
 
     def _connect(self) -> ContextManager[sqlite3.Connection]:
         return sqlite_connection(self.database_path, timeout=5.0, foreign_keys=True)
@@ -201,6 +215,61 @@ class RepairLedger:
             for row in rows
         ]
 
+    def record_ci_test_receipt(
+        self, repair_id: int, receipt: dict[str, object], *,
+        expected_commit_sha: str, expected_run_id: str,
+        expected_run_attempt: str, expected_runner_os: str,
+    ) -> VerifiedCiTestReceipt:
+        """Validate and persist CI evidence; this does not itself approve a repair.
+
+        The caller must fetch receipt data from the artifact attached to the
+        expected GitHub Actions run through an authenticated GitHub API client.
+        The receipt validator checks consistency, not cryptographic authenticity.
+        """
+        verified = verify_ci_test_receipt(
+            receipt,
+            expected_commit_sha=expected_commit_sha,
+            expected_run_id=expected_run_id,
+            expected_run_attempt=expected_run_attempt,
+            expected_runner_os=expected_runner_os,
+        )
+        created = datetime.now(timezone.utc).isoformat()
+        with self._connect() as db:
+            proposal = db.execute(
+                "SELECT status FROM repair_proposals WHERE id=?", (repair_id,)
+            ).fetchone()
+            if proposal is None:
+                raise ValueError("Unknown repair proposal.")
+            if proposal["status"] not in {"proposed", "verified_pending_approval"}:
+                raise ValueError("CI evidence cannot be added after the proposal is reviewed.")
+            db.execute(
+                """INSERT INTO ci_test_receipts(
+                    repair_id, commit_sha, workflow_run_id, run_attempt,
+                    runner_os, python_version, test_command, result, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, 'passed', ?)
+                ON CONFLICT(repair_id, commit_sha, workflow_run_id, run_attempt, runner_os)
+                DO UPDATE SET python_version=excluded.python_version,
+                              test_command=excluded.test_command,
+                              result=excluded.result,
+                              created_at=excluded.created_at""",
+                (repair_id, verified.commit_sha, verified.workflow_run_id,
+                 verified.run_attempt, verified.runner_os, verified.python_version,
+                 verified.test_command, created),
+            )
+        return verified
+
+    def recent_ci_test_receipts(self, repair_id: int, limit: int = 20) -> list[dict[str, str]]:
+        if type(limit) is not int or not 1 <= limit <= 100:
+            raise ValueError("Limit must be between 1 and 100.")
+        with self._connect() as db:
+            rows = db.execute(
+                """SELECT commit_sha, workflow_run_id, run_attempt, runner_os,
+                          python_version, test_command, result, created_at
+                   FROM ci_test_receipts WHERE repair_id=? ORDER BY id DESC LIMIT ?""",
+                (repair_id, limit),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
     def record_verification(
         self, repair_id: int, *, result: str, test_summary: str,
         baseline_ref: str, candidate_ref: str,
@@ -234,11 +303,18 @@ class RepairLedger:
                 raise ValueError("Repair proposal has already been reviewed.")
             if approve_for_manual_review:
                 receipt = db.execute(
-                    "SELECT result FROM verification_receipts WHERE repair_id=? ORDER BY id DESC LIMIT 1",
+                    "SELECT result, candidate_ref FROM verification_receipts WHERE repair_id=? ORDER BY id DESC LIMIT 1",
                     (repair_id,),
                 ).fetchone()
                 if receipt is None or receipt["result"] != "passed":
                     raise PermissionError("A passing test receipt is required before approval for manual review.")
+                ci_rows = db.execute(
+                    "SELECT DISTINCT runner_os FROM ci_test_receipts WHERE repair_id=? AND commit_sha=? AND result='passed'",
+                    (repair_id, receipt["candidate_ref"].lower()),
+                ).fetchall()
+                ci_platforms = {row["runner_os"] for row in ci_rows}
+                if ci_platforms and not {"Windows", "Linux"}.issubset(ci_platforms):
+                    raise PermissionError("CI evidence exists for this candidate; passing Windows and Linux receipts are both required.")
                 status = "approved_for_manual_review"
             else:
                 status = "rejected"
